@@ -20,147 +20,6 @@ import './style.css';
 const HOT_COLORS = [0xffffdc, 0xffc735, 0xff7418, 0xff2f0c, 0x8d1207];
 const WAVE_COLOR = 0xb9e6ff;
 
-const moltenSurfaceMaterial = new THREE.ShaderMaterial({
-  uniforms: {
-    uTime: { value: 0 },
-    uPulse: { value: 0 },
-    uColor: { value: new THREE.Color(HOT_COLORS[0]) },
-    uSeed: { value: 0 },
-  },
-  vertexShader: `
-    varying vec3 vObjectPosition;
-    varying vec3 vNormal;
-    varying vec3 vViewDir;
-    uniform float uTime;
-    void main() {
-      vec3 pos = position;
-      float disp = sin(pos.x * 8.0 + uTime * 0.6) * sin(pos.y * 6.0 + uTime * 0.4) * sin(pos.z * 7.0 + uTime * 0.5) * 0.008;
-      pos += normal * disp;
-      vec4 mvPos = modelViewMatrix * vec4(pos, 1.0);
-      vObjectPosition = normalize(position);
-      vNormal = normalize(normalMatrix * normal);
-      vViewDir = normalize(-mvPos.xyz);
-      gl_Position = projectionMatrix * mvPos;
-    }
-  `,
-  fragmentShader: `
-    uniform float uTime;
-    uniform float uPulse;
-    uniform float uSeed;
-    uniform vec3 uColor;
-    varying vec3 vObjectPosition;
-    varying vec3 vNormal;
-    varying vec3 vViewDir;
-    float hash(vec3 p) {
-      p = fract(p * 0.3183099 + 0.1);
-      p *= 17.0;
-      return fract(p.x * p.y * p.z * (p.x + p.y + p.z));
-    }
-    float noise(vec3 x) {
-      vec3 i = floor(x);
-      vec3 f = fract(x);
-      f = f * f * (3.0 - 2.0 * f);
-      return mix(mix(mix(hash(i), hash(i + vec3(1,0,0)), f.x),
-                     mix(hash(i + vec3(0,1,0)), hash(i + vec3(1,1,0)), f.x), f.y),
-                 mix(mix(hash(i + vec3(0,0,1)), hash(i + vec3(1,0,1)), f.x),
-                     mix(hash(i + vec3(0,1,1)), hash(i + vec3(1,1,1)), f.x), f.y), f.z);
-    }
-    float fbm(vec3 p) {
-      float v = 0.0, a = 0.5;
-      for (int i = 0; i < 5; i++) { v += a * noise(p); p *= 2.0; a *= 0.5; }
-      return v;
-    }
-    vec2 cellular(vec3 p) {
-      vec3 cell = floor(p);
-      vec3 local = fract(p);
-      float nearest = 10.0;
-      float second = 10.0;
-      for (int x = -1; x <= 1; x++) {
-        for (int y = -1; y <= 1; y++) {
-          for (int z = -1; z <= 1; z++) {
-            vec3 offset = vec3(float(x), float(y), float(z));
-            vec3 lattice = cell + offset;
-            vec3 point = vec3(
-              hash(lattice + vec3(17.1, 3.7, 9.2)),
-              hash(lattice + vec3(4.8, 23.4, 2.6)),
-              hash(lattice + vec3(8.3, 6.1, 31.7))
-            );
-            float distanceToPoint = length(offset + point - local);
-            if (distanceToPoint < nearest) {
-              second = nearest;
-              nearest = distanceToPoint;
-            } else if (distanceToPoint < second) {
-              second = distanceToPoint;
-            }
-          }
-        }
-      }
-      return vec2(nearest, second);
-    }
-    void main() {
-      vec3 seedOffset = vec3(uSeed * 1.73, uSeed * 2.41, uSeed * 0.91);
-      vec3 p = vObjectPosition * 3.15 + seedOffset;
-      float warp = fbm(p * 1.25 + uTime * 0.018);
-      vec3 warped = p + vec3(warp - 0.5) * 0.72;
-      vec2 cells = cellular(warped);
-      vec2 fineCells = cellular(warped * 1.85 + 7.3);
-      float mainCrack = 1.0 - smoothstep(0.012, 0.058, cells.y - cells.x);
-      float fineCrack = 1.0 - smoothstep(0.008, 0.034, fineCells.y - fineCells.x);
-      float crack = clamp(mainCrack + fineCrack * 0.16, 0.0, 1.0);
-      float poolNoise = fbm(warped * 0.72 + vec3(2.0, 5.0, 1.0));
-      float moltenPool = smoothstep(0.735, 0.82, poolNoise) * 0.32;
-      float heat = clamp(crack + moltenPool, 0.0, 1.0);
-      float fresnel = pow(1.0 - max(dot(vNormal, vViewDir), 0.0), 2.5);
-      vec3 lightDir = normalize(vec3(0.55, 0.72, 0.42));
-      float diffuse = max(dot(vNormal, lightDir), 0.0);
-      vec3 halfVector = normalize(lightDir + vViewDir);
-      float specular = pow(max(dot(vNormal, halfVector), 0.0), 42.0);
-      vec3 rock = vec3(0.006, 0.0045, 0.0035) + vec3(0.052, 0.025, 0.012) * diffuse;
-      vec3 ember = mix(vec3(0.72, 0.055, 0.008), uColor, 0.28);
-      vec3 hotCore = vec3(1.0, 0.48, 0.075);
-      vec3 molten = mix(ember, hotCore, pow(heat, 3.4));
-      vec3 col = mix(rock, molten, heat);
-      col += vec3(0.42, 0.16, 0.055) * fresnel * 0.18;
-      col += vec3(0.72, 0.48, 0.3) * specular * 0.42;
-      col *= 1.0 + uPulse * 0.22 * heat;
-      gl_FragColor = vec4(col, 1.0);
-    }
-  `,
-});
-
-const moltenAtmosphereMaterial = new THREE.ShaderMaterial({
-  uniforms: {
-    uTime: { value: 0 },
-    uColor: { value: new THREE.Color(0xff3300) },
-  },
-  vertexShader: `
-    varying vec3 vNormal;
-    varying vec3 vViewDir;
-    void main() {
-      vec4 mvPos = modelViewMatrix * vec4(position, 1.0);
-      vNormal = normalize(normalMatrix * normal);
-      vViewDir = normalize(-mvPos.xyz);
-      gl_Position = projectionMatrix * mvPos;
-    }
-  `,
-  fragmentShader: `
-    uniform float uTime;
-    uniform vec3 uColor;
-    varying vec3 vNormal;
-    varying vec3 vViewDir;
-    void main() {
-      float fresnel = pow(1.0 - max(dot(vNormal, vViewDir), 0.0), 2.0);
-      float pulse = 0.85 + 0.15 * sin(uTime * 1.2);
-      vec3 col = uColor * (1.5 + fresnel * 0.5) * pulse;
-      gl_FragColor = vec4(col, fresnel * 0.2 * pulse);
-    }
-  `,
-  transparent: true,
-  blending: THREE.AdditiveBlending,
-  side: THREE.BackSide,
-  depthWrite: false,
-});
-
 const audio = document.querySelector('#narration');
 const canvas = document.querySelector('#scene');
 const labelsRoot = document.querySelector('#labels');
@@ -337,30 +196,52 @@ function createPlasmaNode(definition, index) {
   }
   if (definition.shape === 'chladni') return createChladniNode(definition, index);
   const group = new THREE.Group();
+  const halo = new THREE.Sprite(new THREE.SpriteMaterial({ map: texture, color: definition.color, transparent: true, opacity: 0.2, depthWrite: false, blending: THREE.AdditiveBlending }));
+  halo.scale.setScalar(definition.radius * 3.4);
+  group.add(halo);
 
-  const surfaceMat = moltenSurfaceMaterial.clone();
-  surfaceMat.uniforms.uColor.value = new THREE.Color(definition.color);
-  surfaceMat.uniforms.uSeed.value = index + definition.phase;
-  const sphere = new THREE.Mesh(
-    new THREE.SphereGeometry(definition.radius, 64, 64),
-    surfaceMat,
-  );
-  group.add(sphere);
+  const mantle = new THREE.Sprite(new THREE.SpriteMaterial({ map: texture, color: definition.color, transparent: true, opacity: 0.42, depthWrite: false, blending: THREE.AdditiveBlending }));
+  mantle.scale.setScalar(definition.radius * 1.65);
+  group.add(mantle);
 
-  const atmosphereMat = moltenAtmosphereMaterial.clone();
-  atmosphereMat.uniforms.uColor.value = new THREE.Color(definition.color).multiplyScalar(0.9).offsetHSL(-0.05, 0.1, 0);
-  const atmosphere = new THREE.Mesh(
-    new THREE.SphereGeometry(definition.radius * 1.1, 64, 64),
-    atmosphereMat,
-  );
-  group.add(atmosphere);
+  const core = new THREE.Sprite(new THREE.SpriteMaterial({ map: texture, color: HOT_COLORS[0], transparent: true, opacity: 0.92, depthWrite: false, blending: THREE.AdditiveBlending }));
+  core.scale.setScalar(definition.radius * 0.68);
+  group.add(core);
 
-  const innerGlow = new THREE.Sprite(new THREE.SpriteMaterial({ map: texture, color: definition.color, transparent: true, opacity: 0.12, depthWrite: false, blending: THREE.AdditiveBlending }));
-  innerGlow.scale.setScalar(definition.radius * 2.35);
-  group.add(innerGlow);
+  const particleGeometry = new THREE.BufferGeometry();
+  const positions = [];
+  const colors = [];
+  const count = 360 + (index % 4) * 60;
+  const bodyColor = new THREE.Color(definition.color);
+  for (let i = 0; i < count; i += 1) {
+    const shell = i % 3;
+    const theta = i * 2.39996323 + definition.phase;
+    const phi = Math.acos(1 - 2 * ((i + 0.5) / count));
+    const shellRadius = definition.radius * (0.38 + shell * 0.28 + 0.06 * Math.sin(i * 1.7 + definition.phase));
+    const flatten = 0.78 + 0.18 * Math.sin(i * 0.37 + definition.phase);
+    const arm = 1 + 0.12 * Math.sin(theta * 2.4 + shell);
+    positions.push(
+      Math.cos(theta) * Math.sin(phi) * shellRadius * arm,
+      Math.cos(phi) * shellRadius * flatten,
+      Math.sin(theta) * Math.sin(phi) * shellRadius * 0.68,
+    );
+    const shellColor = new THREE.Color(HOT_COLORS[Math.min(shell + 1, HOT_COLORS.length - 1)]).lerp(bodyColor, 0.22);
+    const shade = 0.7 + 0.38 * ((Math.sin(theta * 1.7) + 1) / 2);
+    colors.push(shellColor.r * shade, shellColor.g * shade, shellColor.b * shade);
+  }
+  particleGeometry.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
+  particleGeometry.setAttribute('color', new THREE.Float32BufferAttribute(colors, 3));
+  const particles = new THREE.Points(particleGeometry, new THREE.PointsMaterial({ size: 0.056, map: texture, vertexColors: true, transparent: true, opacity: 0.66, depthWrite: false, blending: THREE.AdditiveBlending, sizeAttenuation: true }));
+  group.add(particles);
+
+  const ringGeometry = new THREE.TorusGeometry(definition.radius * 0.88, 0.006, 4, 64);
+  const ring = new THREE.Mesh(ringGeometry, new THREE.MeshBasicMaterial({ color: definition.color, transparent: true, opacity: 0.22, blending: THREE.AdditiveBlending, depthWrite: false }));
+  ring.rotation.x = Math.PI * 0.45 + definition.phase * 0.1;
+  ring.rotation.z = definition.phase;
+  group.add(ring);
 
   group.position.set(...definition.position);
-  group.userData = { ...definition, sphere, atmosphere, innerGlow, index };
+  group.userData = { ...definition, halo, mantle, core, particles, ring, index };
   return { group, definition };
 }
 
@@ -814,10 +695,11 @@ function updateScene(time) {
     } else {
       group.rotation.y = definition.phase + frameTime * definition.spin;
       group.rotation.x = Math.sin(frameTime * 0.6 + definition.phase) * 0.14;
-      group.userData.sphere.material.uniforms.uTime.value = time;
-      group.userData.sphere.material.uniforms.uPulse.value = pulse;
-      group.userData.atmosphere.material.uniforms.uTime.value = time;
-      group.userData.innerGlow.material.opacity = 0.08 + pulse * 0.18 + Math.sin(time * 1.8 + definition.phase) * 0.02;
+      group.userData.halo.material.opacity = 0.12 + pulse * 0.24 + Math.sin(time * 1.8 + definition.phase) * 0.02;
+      group.userData.mantle.material.opacity = 0.28 + pulse * 0.3;
+      group.userData.core.material.opacity = 0.6 + pulse * 0.32;
+      group.userData.particles.material.opacity = 0.44 + pulse * 0.4;
+      group.userData.ring.material.opacity = 0.12 + pulse * 0.26;
     }
     const showLabel = revealedMain.has(index);
     labels[index].classList.toggle('is-focus', selected && showLabel);
