@@ -1,0 +1,83 @@
+<style>
+  .direction-grid { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:18px; margin-top:24px; }
+  .direction { border:1px solid #30343b; background:#080a0d; cursor:pointer; transition:transform .18s ease,border-color .18s ease; overflow:hidden; }
+  .direction:hover { transform:translateY(-3px); border-color:#d7dde7; }
+  .direction.selected { border-color:#f4d06f; box-shadow:0 0 0 1px #f4d06f; }
+  .triptych { display:grid; grid-template-columns:repeat(3,1fr); height:250px; background:#020305; }
+  .frame { position:relative; overflow:hidden; border-right:1px solid #252932; }
+  .frame:last-child { border-right:0; }
+  .frame-label { position:absolute; left:8px; top:8px; z-index:5; color:#d8dde6; font:10px/1.2 ui-monospace,monospace; opacity:.78; }
+  .caption { padding:16px 16px 18px; }
+  .caption h3 { margin:0 0 8px; color:#f5f7fa; font-size:18px; }
+  .caption p { margin:0; color:#aab1bd; font-size:13px; line-height:1.6; }
+  .formula { display:block; margin-top:10px; color:#f4d06f; font:12px/1.4 ui-monospace,monospace; }
+  .plasma { background:radial-gradient(circle at 45% 48%,#fff2c4 0 3%,#ffb02e 4% 12%,#ef4c2f 23%,#31151a 48%,#030507 76%); }
+  .plasma::before { content:""; position:absolute; inset:-30%; background:repeating-radial-gradient(circle at 45% 48%,transparent 0 9px,rgba(111,224,255,.33) 10px 11px,transparent 12px 22px); transform:rotate(-12deg) scale(1.35,.72); }
+  .shells { background:#020407; }
+  .shells::before,.shells::after { content:""; position:absolute; border:1px solid rgba(136,224,255,.58); border-radius:50%; left:50%; top:51%; transform:translate(-50%,-50%); }
+  .shells::before { width:72%; aspect-ratio:1; box-shadow:0 0 12px rgba(136,224,255,.28),0 0 0 22px rgba(136,224,255,.08),0 0 0 45px rgba(136,224,255,.035); }
+  .shells::after { width:8px; height:8px; border:0; background:#fff6ce; box-shadow:0 0 20px #f4d06f; }
+  .web { background:#020407; }
+  .web::before { content:""; position:absolute; inset:-15%; background:repeating-linear-gradient(31deg,transparent 0 18px,rgba(115,211,235,.23) 19px 20px,transparent 21px 43px),repeating-linear-gradient(149deg,transparent 0 25px,rgba(238,205,111,.17) 26px 27px,transparent 28px 52px); transform:perspective(240px) rotateX(58deg) translateY(-8%); }
+  .web::after { content:""; position:absolute; width:9px; height:9px; border-radius:50%; background:#fff; left:61%; top:43%; box-shadow:0 0 15px #fff,0 0 38px #f4d06f; }
+  .fold { background:linear-gradient(135deg,#030405 0 46%,#4e1f25 47% 49%,#0e2830 50% 52%,#030405 53%); }
+  .fold::before { content:""; position:absolute; inset:12%; border:1px solid rgba(255,170,91,.45); transform:skew(-15deg) rotate(12deg); box-shadow:16px 12px 0 -15px #75d3e6,-22px 28px 0 -15px #f0cf76,30px -24px 0 -15px #e55e48; }
+  .voronoi { background:#040608; }
+  .voronoi::before { content:""; position:absolute; inset:0; background:linear-gradient(28deg,transparent 47%,rgba(117,211,230,.38) 48% 49%,transparent 50%),linear-gradient(151deg,transparent 47%,rgba(244,208,111,.28) 48% 49%,transparent 50%),linear-gradient(87deg,transparent 47%,rgba(229,94,72,.25) 48% 49%,transparent 50%); background-size:55px 47px,70px 62px,86px 71px; }
+  .voronoi::after { content:""; position:absolute; left:55%; top:45%; width:7px; height:7px; border-radius:50%; background:#fff; box-shadow:0 0 14px #fff,0 0 34px #75d3e6; }
+  .curve { background:#030407; }
+  .curve::before { content:""; position:absolute; width:140%; height:55%; left:-20%; top:24%; border:1px solid rgba(153,227,240,.7); border-radius:50%; transform:rotate(-20deg); box-shadow:0 0 12px rgba(153,227,240,.25),0 18px 0 -17px rgba(244,208,111,.7),0 -18px 0 -17px rgba(229,94,72,.65); }
+  .curve::after { content:""; position:absolute; left:50%; top:50%; width:6px; height:6px; border-radius:50%; background:#fff; box-shadow:0 0 18px #fff; }
+  .geodesic { background:#020305; }
+  .geodesic::before { content:""; position:absolute; inset:-20%; background:repeating-conic-gradient(from 17deg at 52% 48%,transparent 0 7deg,rgba(123,214,234,.25) 8deg 8.7deg,transparent 9deg 21deg); transform:perspective(260px) rotateX(62deg); }
+  .geodesic::after { content:""; position:absolute; left:42%; top:41%; width:8px; height:8px; border-radius:50%; background:#fff3c4; box-shadow:0 0 18px #fff,0 0 42px #f4d06f; }
+  .badge { display:inline-block; margin-bottom:8px; color:#080a0d; background:#f4d06f; padding:3px 7px; font:10px/1.2 ui-monospace,monospace; }
+  @media (max-width:900px){ .direction-grid{grid-template-columns:1fr}.triptych{height:210px} }
+</style>
+
+<h2>《六合初鸣》核心视觉路线</h2>
+<p class="subtitle">点击选择。三条路线都保持连续变形，区别在于“声音如何成为宇宙结构”。</p>
+
+<div class="direction-grid">
+  <article class="direction" data-choice="a" onclick="toggleSelect(this)">
+    <div class="triptych">
+      <div class="frame plasma"><span class="frame-label">等离子体</span></div>
+      <div class="frame shells"><span class="frame-label">声壳冻结</span></div>
+      <div class="frame web"><span class="frame-label">回声成网</span></div>
+    </div>
+    <div class="caption">
+      <span class="badge">推荐</span>
+      <h3>A · 声纹成网</h3>
+      <p>热等离子中的球面声波冷却成极淡的同心壳层；壳层被引力拉伸，逐渐成为宇宙网。科学含义与旁白最贴合，情绪从炽热、屏息走向被托住。</p>
+      <span class="formula">δ(r,t) ∝ j₀(kr) · cos(cₛkt)</span>
+      <span class="formula">x(q,t)=q−D(t)∇Φ(q)</span>
+    </div>
+  </article>
+
+  <article class="direction" data-choice="b" onclick="toggleSelect(this)">
+    <div class="triptych">
+      <div class="frame fold"><span class="frame-label">密度褶皱</span></div>
+      <div class="frame voronoi"><span class="frame-label">空间分区</span></div>
+      <div class="frame web"><span class="frame-label">节点发光</span></div>
+    </div>
+    <div class="caption">
+      <h3>B · 引力折纸</h3>
+      <p>把空间看作不断折叠的薄膜，粒子沿势能梯度滑向褶皱与交点，最后出现纤维和节点。画面更锐利、更像未来科学装置，但“声波”需要额外解释。</p>
+      <span class="formula">dx/dt = −∇V(x)</span>
+      <span class="formula">Voronoi ↔ Delaunay duality</span>
+    </div>
+  </article>
+
+  <article class="direction" data-choice="c" onclick="toggleSelect(this)">
+    <div class="triptych">
+      <div class="frame curve"><span class="frame-label">测地线束</span></div>
+      <div class="frame geodesic"><span class="frame-label">曲率分离</span></div>
+      <div class="frame voronoi"><span class="frame-label">星河汇聚</span></div>
+    </div>
+    <div class="caption">
+      <h3>C · 时空回声</h3>
+      <p>粒子沿弯曲时空中的测地线束运动，声音表现为轨迹间距的周期呼吸；最终轨迹汇聚成光河。最诗意、最空灵，但与“38 万年后的冻结印记”关联更隐喻。</p>
+      <span class="formula">D²ξᵘ/Dτ² = −Rᵘₐᵦᵧuᵅξᵝuᵞ</span>
+    </div>
+  </article>
+</div>

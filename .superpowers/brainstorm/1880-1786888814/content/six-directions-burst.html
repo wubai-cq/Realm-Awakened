@@ -1,0 +1,49 @@
+<style>
+  .sequence{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px;margin:24px 0 18px}
+  .shot{position:relative;aspect-ratio:16/9;overflow:hidden;background:#020305;border:1px solid #30343b}
+  .shot-title{position:absolute;z-index:8;left:12px;top:10px;color:#b8c0cc;font:10px/1.3 ui-monospace,monospace}
+  .time{display:block;color:#f4d06f;margin-top:2px}
+  .core{position:absolute;left:50%;top:50%;width:14px;height:14px;border-radius:50%;transform:translate(-50%,-50%);background:#fff5d3;box-shadow:0 0 16px #fff,0 0 42px #efb74a;z-index:5}
+  .shell{position:absolute;left:50%;top:50%;width:44%;aspect-ratio:1;border:1px solid rgba(128,221,239,.68);border-radius:50%;transform:translate(-50%,-50%) scaleY(.72);box-shadow:0 0 16px rgba(128,221,239,.22),0 0 0 18px rgba(128,221,239,.05)}
+  .axis{position:absolute;left:50%;top:50%;width:42%;height:2px;transform-origin:0 50%;z-index:4;background:linear-gradient(90deg,#fff6d2 0,#f4d06f 18%,rgba(107,210,232,.52) 56%,transparent 100%);filter:drop-shadow(0 0 5px rgba(244,208,111,.7))}
+  .axis::after{content:"";position:absolute;right:3%;top:50%;width:8px;height:8px;border-radius:50%;transform:translateY(-50%);background:#fff;box-shadow:0 0 13px #fff,0 0 28px #79d7e9}
+  .a0{transform:rotate(0deg)}.a1{transform:rotate(60deg)}.a2{transform:rotate(120deg)}.a3{transform:rotate(180deg)}.a4{transform:rotate(240deg)}.a5{transform:rotate(300deg)}
+  .burst .shell{opacity:.25;transform:translate(-50%,-50%) scale(1.3,.92)}
+  .burst .axis{width:47%;height:3px}
+  .frozen .core{width:5px;height:5px;opacity:.35;box-shadow:0 0 10px #8dd8e8}
+  .frozen .shell{width:67%;opacity:.24;border-style:dashed;box-shadow:none}
+  .frozen .axis{width:43%;height:1px;opacity:.27;background:linear-gradient(90deg,rgba(126,217,235,.72),rgba(126,217,235,.25) 48%,transparent)}
+  .frozen .axis::after{width:4px;height:4px;opacity:.55;box-shadow:0 0 8px #7cd7e8}
+  .axis-label{position:absolute;z-index:7;color:#8ed7e5;font:9px/1 ui-monospace,monospace}
+  .lx1{right:4%;top:48%}.lx2{left:4%;top:48%}.ly1{right:23%;bottom:7%}.ly2{left:23%;top:8%}.lz1{left:22%;bottom:7%}.lz2{right:22%;top:8%}
+  .equation{border-left:2px solid #f4d06f;padding:12px 14px;background:#0a0c10;color:#c9d0da;font:13px/1.7 ui-monospace,monospace}
+  .equation strong{color:#f4d06f;font-weight:600}.note{color:#9ba4b1;margin-top:8px;font-size:13px;line-height:1.7}
+  @media(max-width:900px){.sequence{grid-template-columns:1fr}}
+</style>
+
+<h2>“六合乍裂”的连续动作设计</h2>
+<p class="subtitle">不是一团爆炸，而是同一枚声壳沿三组对向坐标轴裂成六个清晰方向。</p>
+
+<div class="sequence">
+  <div class="shot">
+    <div class="shot-title">声壳压缩<span class="time">11.70s · “六合”之前</span></div>
+    <div class="shell"></div><div class="core"></div>
+  </div>
+  <div class="shot burst">
+    <div class="shot-title">六轴冲击<span class="time">12.05s · “乍裂”重音</span></div>
+    <div class="shell"></div><div class="core"></div>
+    <i class="axis a0"></i><i class="axis a1"></i><i class="axis a2"></i><i class="axis a3"></i><i class="axis a4"></i><i class="axis a5"></i>
+    <span class="axis-label lx1">+X</span><span class="axis-label lx2">−X</span><span class="axis-label ly1">+Y</span><span class="axis-label ly2">−Y</span><span class="axis-label lz1">+Z</span><span class="axis-label lz2">−Z</span>
+  </div>
+  <div class="shot frozen">
+    <div class="shot-title">冲击尾迹冻结<span class="time">14.80s · “黑暗深处”</span></div>
+    <div class="shell"></div><div class="core"></div>
+    <i class="axis a0"></i><i class="axis a1"></i><i class="axis a2"></i><i class="axis a3"></i><i class="axis a4"></i><i class="axis a5"></i>
+  </div>
+</div>
+
+<div class="equation">
+  <strong>六方向集合：</strong> d ∈ {±eₓ, ±eᵧ, ±e_z}<br>
+  <strong>爆裂半径：</strong> R(t) = ξ(E(t−t₀)²/ρ)¹⁄⁵
+</div>
+<p class="note">六束粒子不会飞出画面后消失。它们在 14.8 秒减速、降亮度，成为下一段“极淡的印记”的六条初始骨架，再继续被引力拉成长丝。</p>

@@ -1,0 +1,46 @@
+<style>
+  .text-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:18px;margin-top:24px}
+  .text-card{border:1px solid #30343b;background:#080a0d;cursor:pointer;overflow:hidden;transition:transform .18s ease,border-color .18s ease}
+  .text-card:hover{transform:translateY(-3px);border-color:#d7dde7}.text-card.selected{border-color:#f4d06f;box-shadow:0 0 0 1px #f4d06f}
+  .screen{position:relative;aspect-ratio:16/9;overflow:hidden;background:#020407}
+  .screen::before{content:"";position:absolute;inset:-25%;background:repeating-linear-gradient(31deg,transparent 0 24px,rgba(115,211,235,.2) 25px 26px,transparent 27px 56px),repeating-linear-gradient(149deg,transparent 0 36px,rgba(238,205,111,.12) 37px 38px,transparent 39px 72px);transform:perspective(280px) rotateX(59deg) translateY(-6%)}
+  .screen::after{content:"";position:absolute;width:8px;height:8px;border-radius:50%;background:#fff;left:61%;top:43%;box-shadow:0 0 16px #fff,0 0 40px #f4d06f}
+  .sub{position:absolute;z-index:4;left:9%;right:9%;bottom:8%;text-align:center;color:#f5f2e9;font:500 15px/1.5 "Noto Serif SC","Songti SC",serif;text-shadow:0 2px 12px #000}
+  .sub b{color:#f4d06f;font-weight:600}
+  .note{position:absolute;z-index:4;left:5%;top:8%;color:#97d4df;font:10px/1.4 ui-monospace,monospace;text-transform:uppercase}
+  .note span{display:block;color:#707985;margin-top:2px}
+  .big{position:absolute;z-index:4;left:7%;top:43%;transform:translateY(-50%);color:#f6f1e5;font:600 27px/1.1 "Noto Serif SC","Songti SC",serif;text-shadow:0 2px 18px #000}
+  .big em{display:block;color:#f4d06f;font:11px/1.4 ui-monospace,monospace;font-style:normal;margin-top:8px}
+  .karaoke{position:absolute;z-index:4;left:7%;right:7%;bottom:9%;display:flex;justify-content:center;gap:5px;color:#606977;font:600 13px/1.4 "Noto Sans SC",sans-serif}
+  .karaoke .on{color:#fff}.karaoke .hit{color:#f4d06f;transform:translateY(-2px)}
+  .body{padding:16px}.body h3{margin:0 0 8px;color:#f5f7fa;font-size:18px}.body p{margin:0;color:#aab1bd;font-size:13px;line-height:1.6}
+  .badge{display:inline-block;margin-bottom:8px;color:#080a0d;background:#f4d06f;padding:3px 7px;font:10px/1.2 ui-monospace,monospace}
+  @media(max-width:900px){.text-grid{grid-template-columns:1fr}}
+</style>
+
+<h2>字幕与科学标注怎样进入画面？</h2>
+<p class="subtitle">点击选择。示例使用“星系与星系之间的距离里”这一段。</p>
+
+<div class="text-grid">
+  <article class="text-card" data-choice="t1" onclick="toggleSelect(this)">
+    <div class="screen">
+      <div class="note">BAO IMPRINT<span>COMOVING SEPARATION · 147 Mpc</span></div>
+      <div class="sub">悄悄写进了，<b>星系与星系之间的距离</b>里。</div>
+    </div>
+    <div class="body"><span class="badge">推荐</span><h3>1 · 电影字幕 + 稀疏标注</h3><p>旁白字幕安静地落在底部；只有关键科学节点出现极细标注。既能完整阅读，又不把画面做成科普课件。</p></div>
+  </article>
+
+  <article class="text-card" data-choice="t2" onclick="toggleSelect(this)">
+    <div class="screen">
+      <div class="big">星系与星系<br>之间的距离<em>ACOUSTIC SCALE · 147 Mpc</em></div>
+    </div>
+    <div class="body"><h3>2 · 关键词成为空间物体</h3><p>不常驻完整字幕；重要词句悬浮在粒子深处并被镜头穿过。冲击更强，但容易抢走高斯粒子的主角位置。</p></div>
+  </article>
+
+  <article class="text-card" data-choice="t3" onclick="toggleSelect(this)">
+    <div class="screen">
+      <div class="karaoke"><span class="on">悄悄</span><span class="on">写进了</span><span class="hit">星系</span><span>与星系</span><span>之间的距离里</span></div>
+    </div>
+    <div class="body"><h3>3 · 逐词点亮</h3><p>字幕严格跟随发音逐词发亮，节奏清楚、短视频感强；但会让这段旁白失去应有的停顿和辽阔感。</p></div>
+  </article>
+</div>

@@ -1,0 +1,37 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="theme-color" content="#020407" />
+    <title>六合初鸣 · Scene 01</title>
+  </head>
+  <body>
+    <main id="app" aria-label="六合初鸣第一段镜头">
+      <canvas id="scene" aria-label="滚烫等离子体与声波粒子场"></canvas>
+      <div id="vignette" aria-hidden="true"></div>
+      <header class="title-lockup">
+        <p class="eyebrow">SCENE 01 / PRIMORDIAL PLASMA</p>
+        <h1>六合初鸣</h1>
+        <p class="title-sub">很久以前，声音还没有名字。</p>
+      </header>
+      <div id="labels" aria-hidden="true"></div>
+      <div class="caption-lockup">
+        <p id="subtitle" class="subtitle"></p>
+        <p id="caption" class="caption">原初光子 · 重子 · 声压峰</p>
+      </div>
+      <div class="control-rail" aria-label="播放控制">
+        <button id="play" class="icon-button" type="button" title="播放" aria-label="播放"><i data-lucide="play"></i></button>
+        <button id="reset" class="icon-button" type="button" title="重置" aria-label="重置"><i data-lucide="rotate-ccw"></i></button>
+        <span id="timecode" class="timecode">00:00.00 / 00:06.40</span>
+        <span class="fps-mark">30 FPS</span>
+      </div>
+      <div class="legend" aria-hidden="true">
+        <span><i class="legend-dot hot"></i>天体等离子</span>
+        <span><i class="legend-dot wave"></i>声波包</span>
+      </div>
+      <audio id="narration" preload="auto" src="/audio-scene-01.wav"></audio>
+    </main>
+    <script type="module" src="/src/main.js"></script>
+  </body>
+</html>

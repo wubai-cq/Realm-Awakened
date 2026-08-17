@@ -1,0 +1,54 @@
+<style>
+  .specbar{display:grid;grid-template-columns:repeat(4,1fr);gap:1px;background:#30343b;border:1px solid #30343b;margin:18px 0 24px}
+  .specbar div{background:#0a0c10;padding:12px}.specbar b{display:block;color:#f4d06f;font:11px/1.2 ui-monospace,monospace;margin-bottom:5px}.specbar span{color:#d3d8df;font-size:13px}
+  .storyboard{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:18px}
+  .scene{border:1px solid #30343b;background:#080a0d;overflow:hidden}
+  .visual{position:relative;aspect-ratio:16/9;overflow:hidden;background:#020407}
+  .meta{position:absolute;z-index:9;left:12px;top:10px;color:#c7ced8;font:10px/1.35 ui-monospace,monospace}.meta b{display:block;color:#f4d06f;font-weight:600}
+  .screen-subtitle{position:absolute;z-index:9;left:9%;right:9%;bottom:8%;color:#f4f0e8;text-align:center;font:500 13px/1.45 "Noto Serif SC","Songti SC",serif;text-shadow:0 2px 12px #000}
+  .label{position:absolute;z-index:8;right:5%;top:8%;color:#88d5e4;text-align:right;font:9px/1.45 ui-monospace,monospace}.label small{display:block;color:#737d89}
+  .plasma{background:radial-gradient(circle at 47% 50%,#fff5d5 0 3%,#ffb33e 4% 12%,#ef4f39 23%,#36151b 47%,#020407 78%)}
+  .plasma::before{content:"";position:absolute;inset:-25%;background:repeating-radial-gradient(circle at 47% 50%,transparent 0 11px,rgba(112,217,237,.34) 12px 13px,transparent 14px 27px);transform:rotate(-16deg) scale(1.25,.7)}
+  .plasma::after{content:"";position:absolute;left:62%;top:43%;width:9px;height:9px;border-radius:50%;background:#fff;box-shadow:0 0 14px #fff,0 0 33px #f4d06f}
+  .quiet{background:radial-gradient(circle at 50% 48%,rgba(123,210,229,.13),#020407 55%)}
+  .quiet::before{content:"";position:absolute;left:50%;top:49%;width:54%;aspect-ratio:1;border:1px solid rgba(130,216,234,.4);border-radius:50%;transform:translate(-50%,-50%) scaleY(.7);box-shadow:0 0 0 18px rgba(130,216,234,.04),0 0 22px rgba(130,216,234,.18)}
+  .quiet::after{content:"";position:absolute;inset:0;background:radial-gradient(circle at 50% 49%,transparent 0 24%,rgba(2,4,7,.45) 38%,rgba(2,4,7,.82) 72%)}
+  .burst::before{content:"";position:absolute;left:50%;top:50%;width:48%;height:2px;transform-origin:0 50%;background:linear-gradient(90deg,#fff5d2,#f4d06f 18%,rgba(119,214,233,.45) 62%,transparent);box-shadow:0 0 8px #f4d06f}
+  .burst .r1{transform:rotate(0)}.burst .r2{transform:rotate(60deg)}.burst .r3{transform:rotate(120deg)}.burst .r4{transform:rotate(180deg)}.burst .r5{transform:rotate(240deg)}.burst .r6{transform:rotate(300deg)}
+  .ray{position:absolute;left:50%;top:50%;width:44%;height:2px;transform-origin:0 50%;background:linear-gradient(90deg,#fff5d2,#f4d06f 18%,rgba(119,214,233,.42) 62%,transparent);filter:drop-shadow(0 0 5px #f4d06f)}
+  .ray::after{content:"";position:absolute;right:3%;top:50%;width:7px;height:7px;border-radius:50%;transform:translateY(-50%);background:#fff;box-shadow:0 0 12px #fff,0 0 26px #76d5e7}
+  .imprint{background:#020407}
+  .imprint::before{content:"";position:absolute;left:50%;top:48%;width:66%;aspect-ratio:1;border:1px dashed rgba(119,214,233,.46);border-radius:50%;transform:translate(-50%,-50%) scaleY(.46);box-shadow:0 0 20px rgba(119,214,233,.12)}
+  .galaxy{position:absolute;width:7px;height:7px;border-radius:50%;background:#f8f4e7;box-shadow:0 0 10px #fff,0 0 24px #7fd8e9}.g1{left:20%;top:53%}.g2{right:19%;top:37%}.g3{left:58%;top:70%;opacity:.6}.g4{left:41%;top:24%;opacity:.55}
+  .measure{position:absolute;left:22%;right:22%;top:47%;height:1px;background:rgba(244,208,111,.56);transform:rotate(-12deg)}.measure::before,.measure::after{content:"";position:absolute;top:-4px;width:1px;height:9px;background:#f4d06f}.measure::before{left:0}.measure::after{right:0}
+  .web{background:#020407}.web::before{content:"";position:absolute;inset:-16%;background:repeating-linear-gradient(31deg,transparent 0 22px,rgba(115,211,235,.27) 23px 24px,transparent 25px 54px),repeating-linear-gradient(149deg,transparent 0 31px,rgba(238,205,111,.16) 32px 33px,transparent 34px 68px);transform:perspective(280px) rotateX(58deg) translateY(-8%)}
+  .web::after{content:"";position:absolute;left:61%;top:45%;width:8px;height:8px;border-radius:50%;background:#fff;box-shadow:0 0 16px #fff,0 0 42px #f4d06f}
+  .river{background:#020407}.river::before{content:"";position:absolute;width:125%;height:64%;left:-14%;top:17%;border:1px solid rgba(136,220,237,.64);border-radius:50%;transform:rotate(-18deg);box-shadow:0 0 12px rgba(136,220,237,.28),0 17px 0 -16px rgba(244,208,111,.78),0 -17px 0 -16px rgba(235,92,68,.42)}
+  .river::after{content:"";position:absolute;left:52%;top:47%;width:9px;height:9px;border-radius:50%;background:#fff8d7;box-shadow:0 0 18px #fff,0 0 48px #f4d06f}
+  .body{padding:15px 16px 17px}.body h3{margin:0 0 8px;color:#f4f6f9;font-size:17px}.body p{margin:0;color:#aab2be;font-size:13px;line-height:1.65}.body code{color:#8ed7e5;background:#11151a;padding:1px 4px}.continuity{display:block;margin-top:9px;color:#f4d06f;font-size:12px}
+  .emotion{display:flex;height:34px;margin-top:24px;border:1px solid #30343b}.emotion span{display:flex;align-items:center;justify-content:center;color:#c7ced8;font:10px/1 ui-monospace,monospace;border-right:1px solid #30343b}.emotion span:last-child{border-right:0}.e1{flex:6;background:#38161a}.e2{flex:4;background:#111c22}.e3{flex:5;background:#412427}.e4{flex:8;background:#10242b}.e5{flex:12;background:#17282a}.e6{flex:6;background:#312b1b}
+  @media(max-width:900px){.storyboard{grid-template-columns:1fr}.specbar{grid-template-columns:repeat(2,1fr)}}
+</style>
+
+<h2>《六合初鸣》全片分镜 v1</h2>
+<p class="subtitle">42.1969 秒 · 1266 帧。所有场景复用同一批粒子 ID，镜头之间不重置世界。</p>
+
+<div class="specbar">
+  <div><b>画幅</b><span>3840 × 2160</span></div><div><b>帧率</b><span>30 FPS</span></div><div><b>粒子介质</b><span>各向异性 Gaussian splats</span></div><div><b>字幕</b><span>电影字幕 + 稀疏科学标注</span></div>
+</div>
+
+<div class="storyboard">
+  <article class="scene"><div class="visual plasma"><div class="meta"><b>SCENE 01</b>F000–191 · 00:00.000–00:06.400</div><div class="label">PHOTON–BARYON PLASMA<small>原初光子-重子等离子体</small></div><div class="screen-subtitle">很久以前，宇宙是一锅滚烫的等离子体——声波，在其中来回震荡。</div></div><div class="body"><h3>01 · 滚烫的声音</h3><p>镜头置于高密度粒子海内部。红金色高斯团被声压推开又回卷，一枚白金色主声波包始终可辨；它沿解析声场穿行，为之后的六次撞击埋下唯一运动主体。</p><span class="continuity">尾帧：热色开始抽离，主声波包停在画面深处。</span></div></article>
+
+  <article class="scene"><div class="visual quiet"><div class="meta"><b>SCENE 02</b>F192–321 · 00:06.400–00:10.733</div><div class="label">380,000 YEARS<small>RECOMBINATION · z ≈ 1100</small></div><div class="screen-subtitle">三十八万年后，一切，忽然安静。</div></div><div class="body"><h3>02 · 宇宙屏息</h3><p>同一片粒子温度骤降，红金退成冷青；速度阻尼快速升高，球面波纹在半个呼吸内近乎静止。10.36–10.75 秒保留真正的无动作屏息，只让余辉下降。</p><span class="continuity">尾帧：冻结声壳仍在，中心仅剩一枚微弱白点。</span></div></article>
+
+  <article class="scene"><div class="visual burst"><div class="meta"><b>SCENE 03</b>F322–484 · 00:10.733–00:16.167</div><div class="label">SIX DIRECTIONS<small>±X · ±Y · ±Z</small></div><i class="ray r1"></i><i class="ray r2"></i><i class="ray r3"></i><i class="ray r4"></i><i class="ray r5"></i><i class="ray r6"></i><div class="screen-subtitle">六合乍裂——那声波，就此，被冻结在黑暗深处。</div></div><div class="body"><h3>03 · 六次撞击，一次击穿</h3><p>白点重新成为单一波包，依次撞击六个方位。每次只亮一处并留下声痕；第六次落在“裂”的峰值上，能量沿旧路径倒灌，六处链式破裂，随后全部冻结。</p><span class="continuity">尾帧：六条冷青残痕保持空间坐标，成为下一场的测量骨架。</span></div></article>
+
+  <article class="scene"><div class="visual imprint"><div class="meta"><b>SCENE 04</b>F485–737 · 00:16.167–00:24.600</div><div class="label">BAO IMPRINT<small>COMOVING SCALE ≈ 147 Mpc</small></div><i class="galaxy g1"></i><i class="galaxy g2"></i><i class="galaxy g3"></i><i class="galaxy g4"></i><i class="measure"></i><div class="screen-subtitle">它没有消失，只是化作一道极淡的印记，悄悄写进了星系与星系之间的距离里。</div></div><div class="body"><h3>04 · 距离里的回声</h3><p>六条残痕弯成一枚极淡的声学壳层，镜头穿出壳层，周围第一次出现稀疏星系团。测量线只出现一次：<code>≈147 Mpc</code>，说明这是统计尺度，不虚构具体星系名称。</p><span class="continuity">尾帧：测量弧线拉长，直接变成宇宙网的第一根纤维。</span></div></article>
+
+  <article class="scene"><div class="visual web"><div class="meta"><b>SCENE 05</b>F738–1099 · 00:24.600–00:36.667</div><div class="label">13.8 BILLION YEARS<small>ZEL'DOVICH FLOW · z:1100 → 0</small></div><div class="screen-subtitle">往后的一百三十八亿年，宇宙都在把这道回声织成一张网。而我们，都是网上，那一点被轻轻托起的光。</div></div><div class="body"><h3>05 · 回声织网</h3><p>时间被压缩，残痕沿引力势梯度拉伸为片、丝、节点。镜头持续后退揭示宇宙网；在“我们”出现时，不放地球图标，只让一个普通节点从冷青转为暖金并被纤维轻轻抬高。</p><span class="continuity">尾帧：暖金节点仍嵌在网中，镜头开始沿它所在的纤维转弯。</span></div></article>
+
+  <article class="scene"><div class="visual river"><div class="meta"><b>SCENE 06</b>F1100–1265 · 00:36.667–00:42.200</div><div class="label">GEODESIC GLIDE<small>同一张网 · 同一点光</small></div><div class="screen-subtitle">所以别怕辽阔——起于混沌的声音，终会，自成星河。</div></div><div class="body"><h3>06 · 自成星河</h3><p>镜头沿暖金节点所在纤维做一次 C 路线式弯曲滑行；粒子没有变成另一套场景，而是沿原有网丝流动、拉出长曝光般的光河。最后升到极远景，星河仍可辨认出最初声壳的弧度。</p><span class="continuity">尾帧：一点暖金留在浩瀚网中，画面慢落黑，不做爆闪。</span></div></article>
+</div>
+
+<div class="emotion"><span class="e1">炽热</span><span class="e2">屏息</span><span class="e3">骤裂</span><span class="e4">发现</span><span class="e5">托举</span><span class="e6">释然</span></div>
