@@ -157,7 +157,7 @@ function createBackgroundStars() {
     { count: 1050, size: 0.042, opacity: 0.56 },
     { count: 420, size: 0.078, opacity: 0.72 },
     { count: 120, size: 0.13, opacity: 0.64 },
-  ].forEach((layer) => {
+  ].forEach((layer, layerIndex) => {
     const positions = [];
     const colors = [];
     const phases = [];
@@ -182,7 +182,12 @@ function createBackgroundStars() {
         THREE.MathUtils.clamp(z, -5.2, 1.2),
       );
       const brightness = 0.62 + random() * 0.38;
-      colors.push(brightness * 0.82, brightness * 0.88, brightness);
+      const isWhiteStar = (i * 37 + layerIndex * 13) % 31 < 2;
+      colors.push(
+        brightness,
+        brightness * (isWhiteStar ? 0.9 : 0.16),
+        brightness * (isWhiteStar ? 1 : 0.035),
+      );
       phases.push(random() * Math.PI * 2);
       speeds.push(2.1 + random() * 1.4);
     }
@@ -593,10 +598,10 @@ function createReferenceCosmicWebNode(definition, index) {
 
 function createMinorBody(definition, index) {
   const group = new THREE.Group();
-  const halo = new THREE.Sprite(new THREE.SpriteMaterial({ map: texture, color: 0xbecbdf, transparent: true, opacity: 0.16, depthWrite: false, blending: THREE.AdditiveBlending }));
+  const halo = new THREE.Sprite(new THREE.SpriteMaterial({ map: texture, color: 0x7a0c02, transparent: true, opacity: 0.16, depthWrite: false, blending: THREE.AdditiveBlending }));
   halo.scale.setScalar(definition.scale * 4.5);
   group.add(halo);
-  const core = new THREE.Sprite(new THREE.SpriteMaterial({ map: texture, color: 0xf4f7ff, transparent: true, opacity: 0.86, depthWrite: false, blending: THREE.AdditiveBlending }));
+  const core = new THREE.Sprite(new THREE.SpriteMaterial({ map: texture, color: 0xff2f0c, transparent: true, opacity: 0.86, depthWrite: false, blending: THREE.AdditiveBlending }));
   core.scale.setScalar(definition.scale * 1.35);
   group.add(core);
 
@@ -612,7 +617,7 @@ function createMinorBody(definition, index) {
   }
   const companionGeometry = new THREE.BufferGeometry();
   companionGeometry.setAttribute('position', new THREE.Float32BufferAttribute(companionPositions, 3));
-  const companions = new THREE.Points(companionGeometry, new THREE.PointsMaterial({ size: 0.038, map: texture, color: 0xdce6f7, transparent: true, opacity: 0.7, depthWrite: false, blending: THREE.AdditiveBlending, sizeAttenuation: true }));
+  const companions = new THREE.Points(companionGeometry, new THREE.PointsMaterial({ size: 0.038, map: texture, color: 0xff5a1f, transparent: true, opacity: 0.7, depthWrite: false, blending: THREE.AdditiveBlending, sizeAttenuation: true }));
   group.add(companions);
   group.position.set(...definition.position);
   group.userData = { halo, core, companions, phase: index * 0.73 };
@@ -708,6 +713,7 @@ function updateWave(time) {
 
 function updateScene(time, motionTime = time) {
   const frameTime = Math.min(SCENE_DURATION, Math.floor(time * FPS) / FPS);
+  const spinTime = motionTime * 2;
   const frame = Math.min(TOTAL_FRAMES - 1, Math.floor(frameTime * FPS));
   if (frame !== lastFrame) {
     lastFrame = frame;
@@ -734,9 +740,9 @@ function updateScene(time, motionTime = time) {
     group.scale.lerp(new THREE.Vector3(targetScale, targetScale, targetScale), 0.08);
     group.position.y = definition.position[1] + Math.sin(time * 0.32 + definition.phase) * 0.05;
     if (group.userData.isChladni) {
-      group.rotation.x = 0.58 + Math.sin(motionTime * 0.52 + definition.phase) * 0.24;
-      group.rotation.y = definition.phase + motionTime * definition.spin * 1.15;
-      group.rotation.z = definition.phase * 0.18 + motionTime * definition.spin * 0.62;
+      group.rotation.x = 0.58 + Math.sin(spinTime * 0.52 + definition.phase) * 0.24;
+      group.rotation.y = definition.phase + spinTime * definition.spin * 1.15;
+      group.rotation.z = definition.phase * 0.18 + spinTime * definition.spin * 0.62;
       const isCosmicWeb = definition.boundary === 'volume';
       group.userData.pattern.material.opacity = isCosmicWeb ? 0.34 + pulse * 0.28 : 0.56 + pulse * 0.38;
       group.userData.glow.material.opacity = isCosmicWeb ? 0.02 + pulse * 0.055 : 0.08 + pulse * 0.2;
@@ -744,8 +750,8 @@ function updateScene(time, motionTime = time) {
       group.userData.outline.material.opacity = isCosmicWeb ? 0.08 + pulse * 0.16 : 0.07 + pulse * 0.2;
       if (group.userData.vertexPoints) group.userData.vertexPoints.material.opacity = 0.58 + pulse * 0.36;
     } else {
-      group.rotation.y = definition.phase + motionTime * definition.spin;
-      group.rotation.x = Math.sin(motionTime * 0.6 + definition.phase) * 0.14;
+      group.rotation.y = definition.phase + spinTime * definition.spin;
+      group.rotation.x = Math.sin(spinTime * 0.6 + definition.phase) * 0.14;
       group.userData.halo.material.opacity = 0.12 + pulse * 0.24 + Math.sin(motionTime * 1.8 + definition.phase) * 0.02;
       group.userData.mantle.material.opacity = 0.28 + pulse * 0.3;
       group.userData.core.material.opacity = 0.6 + pulse * 0.32;
@@ -760,8 +766,8 @@ function updateScene(time, motionTime = time) {
   minorBodies.forEach(({ group }, index) => {
     const pulse = 0.82 + Math.sin(frameTime * 1.35 + group.userData.phase) * 0.18;
     group.scale.setScalar(pulse);
-    group.userData.companions.rotation.z = motionTime * (0.12 + (index % 3) * 0.035);
-    group.userData.companions.rotation.y = motionTime * 0.08 + group.userData.phase;
+    group.userData.companions.rotation.z = spinTime * (0.12 + (index % 3) * 0.035);
+    group.userData.companions.rotation.y = spinTime * 0.08 + group.userData.phase;
     group.userData.core.material.opacity = 0.68 + pulse * 0.16;
     group.userData.halo.material.opacity = 0.08 + pulse * 0.09;
     minorLabels[index].style.opacity = index === labelReveal.minor ? `${0.46 + pulse * 0.2}` : '0';
