@@ -58,7 +58,7 @@ const nodeDefinitions = [
   { label: '北极星', latin: 'POLARIS', position: [3.18, 1.92, -0.3], radius: 0.4, color: HOT_COLORS[0], spin: -0.25, phase: 0.4 },
   { label: '火星', latin: 'MARS', position: [1.16, 0.08, 1.05], radius: 0.42, color: HOT_COLORS[3], spin: 0.48, phase: 2.8 },
   { label: '参宿四', latin: 'BETELGEUSE', position: [-3.28, -1.9, -0.8], radius: 0.55, color: HOT_COLORS[3], spin: -0.31, phase: 2.7 },
-  { label: '昴星团', latin: 'PLEIADES', position: [-0.74, 0.05, -1.22], radius: 0.5, color: HOT_COLORS[0], spin: 0.39, phase: 1.9, shape: 'chladni', modes: [2, 3] },
+  { label: '昴星团', latin: 'PLEIADES', position: [-0.74, 0.05, -1.22], radius: 0.64, color: HOT_COLORS[0], spin: 0.39, phase: 1.9, shape: 'chladni', modes: [2, 3, 4], boundary: 'volume', network: true },
   { label: '金星', latin: 'VENUS', position: [-0.12, -2.55, -0.95], radius: 0.44, color: HOT_COLORS[1], spin: -0.44, phase: 0.9 },
   { label: '海王星', latin: 'NEPTUNE', position: [3.62, -2.02, 0.58], radius: 0.46, color: HOT_COLORS[2], spin: 0.35, phase: 2.4 },
   { label: '月球', latin: 'MOON', position: [-4.02, 0.05, -1.2], radius: 0.3, color: HOT_COLORS[1], spin: -0.52, phase: 1.3 },
@@ -658,7 +658,7 @@ function updateWave(time) {
   positionAttribute.needsUpdate = true;
 }
 
-function updateScene(time) {
+function updateScene(time, motionTime = time) {
   const frameTime = Math.min(SCENE_DURATION, Math.floor(time * FPS) / FPS);
   const frame = Math.min(TOTAL_FRAMES - 1, Math.floor(frameTime * FPS));
   if (frame !== lastFrame) {
@@ -683,9 +683,9 @@ function updateScene(time) {
     group.scale.lerp(new THREE.Vector3(targetScale, targetScale, targetScale), 0.08);
     group.position.y = definition.position[1] + Math.sin(time * 0.32 + definition.phase) * 0.05;
     if (group.userData.isChladni) {
-      group.rotation.x = 0.58 + Math.sin(frameTime * 0.52 + definition.phase) * 0.24;
-      group.rotation.y = definition.phase + frameTime * definition.spin * 1.15;
-      group.rotation.z = definition.phase * 0.18 + frameTime * definition.spin * 0.62;
+      group.rotation.x = 0.58 + Math.sin(motionTime * 0.52 + definition.phase) * 0.24;
+      group.rotation.y = definition.phase + motionTime * definition.spin * 1.15;
+      group.rotation.z = definition.phase * 0.18 + motionTime * definition.spin * 0.62;
       const isCosmicWeb = definition.boundary === 'volume';
       group.userData.pattern.material.opacity = isCosmicWeb ? 0.34 + pulse * 0.28 : 0.56 + pulse * 0.38;
       group.userData.glow.material.opacity = isCosmicWeb ? 0.02 + pulse * 0.055 : 0.08 + pulse * 0.2;
@@ -693,9 +693,9 @@ function updateScene(time) {
       group.userData.outline.material.opacity = isCosmicWeb ? 0.08 + pulse * 0.16 : 0.07 + pulse * 0.2;
       if (group.userData.vertexPoints) group.userData.vertexPoints.material.opacity = 0.58 + pulse * 0.36;
     } else {
-      group.rotation.y = definition.phase + frameTime * definition.spin;
-      group.rotation.x = Math.sin(frameTime * 0.6 + definition.phase) * 0.14;
-      group.userData.halo.material.opacity = 0.12 + pulse * 0.24 + Math.sin(time * 1.8 + definition.phase) * 0.02;
+      group.rotation.y = definition.phase + motionTime * definition.spin;
+      group.rotation.x = Math.sin(motionTime * 0.6 + definition.phase) * 0.14;
+      group.userData.halo.material.opacity = 0.12 + pulse * 0.24 + Math.sin(motionTime * 1.8 + definition.phase) * 0.02;
       group.userData.mantle.material.opacity = 0.28 + pulse * 0.3;
       group.userData.core.material.opacity = 0.6 + pulse * 0.32;
       group.userData.particles.material.opacity = 0.44 + pulse * 0.4;
@@ -709,8 +709,8 @@ function updateScene(time) {
   minorBodies.forEach(({ group }, index) => {
     const pulse = 0.82 + Math.sin(frameTime * 1.35 + group.userData.phase) * 0.18;
     group.scale.setScalar(pulse);
-    group.userData.companions.rotation.z = frameTime * (0.12 + (index % 3) * 0.035);
-    group.userData.companions.rotation.y = frameTime * 0.08 + group.userData.phase;
+    group.userData.companions.rotation.z = motionTime * (0.12 + (index % 3) * 0.035);
+    group.userData.companions.rotation.y = motionTime * 0.08 + group.userData.phase;
     group.userData.core.material.opacity = 0.68 + pulse * 0.16;
     group.userData.halo.material.opacity = 0.08 + pulse * 0.09;
     minorLabels[index].style.opacity = index === labelReveal.minor ? `${0.46 + pulse * 0.2}` : '0';
@@ -797,7 +797,7 @@ resetButton.addEventListener('click', () => {
   audio.pause();
   audio.currentTime = 0;
   setPlaying(false);
-  updateScene(0);
+  updateScene(0, celestialMotionTime);
 });
 
 audio.addEventListener('timeupdate', () => {
@@ -812,9 +812,13 @@ window.addEventListener('resize', resize);
 resize();
 updateScene(0);
 
+const motionClock = new THREE.Clock();
+let celestialMotionTime = 0;
+
 function render() {
   const time = Math.min(audio.currentTime, SCENE_DURATION);
-  updateScene(time);
+  celestialMotionTime += Math.min(motionClock.getDelta(), 0.05);
+  updateScene(time, celestialMotionTime);
   renderer.render(scene, camera);
   requestAnimationFrame(render);
 }
