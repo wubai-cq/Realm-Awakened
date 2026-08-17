@@ -160,6 +160,8 @@ function createBackgroundStars() {
   ].forEach((layer) => {
     const positions = [];
     const colors = [];
+    const phases = [];
+    const speeds = [];
     for (let i = 0; i < layer.count; i += 1) {
       let x;
       let y;
@@ -181,11 +183,57 @@ function createBackgroundStars() {
       );
       const brightness = 0.62 + random() * 0.38;
       colors.push(brightness * 0.82, brightness * 0.88, brightness);
+      phases.push(random() * Math.PI * 2);
+      speeds.push(2.1 + random() * 1.4);
     }
     const geometry = new THREE.BufferGeometry();
     geometry.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
     geometry.setAttribute('color', new THREE.Float32BufferAttribute(colors, 3));
-    field.add(new THREE.Points(geometry, new THREE.PointsMaterial({ size: layer.size, map: texture, vertexColors: true, transparent: true, opacity: layer.opacity, depthWrite: false, blending: THREE.AdditiveBlending, sizeAttenuation: true })));
+    geometry.setAttribute('aPhase', new THREE.Float32BufferAttribute(phases, 1));
+    geometry.setAttribute('aSpeed', new THREE.Float32BufferAttribute(speeds, 1));
+    const material = new THREE.ShaderMaterial({
+      uniforms: {
+        uTime: { value: 0 },
+        uSize: { value: layer.size * 680 },
+        uOpacity: { value: layer.opacity },
+      },
+      vertexShader: `
+        attribute float aPhase;
+        attribute float aSpeed;
+        uniform float uTime;
+        uniform float uSize;
+        varying vec3 vColor;
+        varying float vPulse;
+        void main() {
+          vColor = color;
+          float wave = 0.5 + 0.5 * sin(uTime * aSpeed + aPhase);
+          vPulse = smoothstep(0.18, 0.82, wave);
+          vec4 mvPosition = modelViewMatrix * vec4(position, 1.0);
+          gl_PointSize = uSize * (0.62 + vPulse * 0.62) / max(1.0, -mvPosition.z);
+          gl_Position = projectionMatrix * mvPosition;
+        }
+      `,
+      fragmentShader: `
+        uniform float uOpacity;
+        varying vec3 vColor;
+        varying float vPulse;
+        void main() {
+          float distanceToCenter = length(gl_PointCoord - vec2(0.5));
+          float core = 1.0 - smoothstep(0.0, 0.16, distanceToCenter);
+          float halo = 1.0 - smoothstep(0.12, 0.5, distanceToCenter);
+          float coreLight = core * (0.58 + vPulse * 0.42);
+          float haloLight = halo * (0.035 + vPulse * 0.9);
+          float alpha = (coreLight + haloLight) * uOpacity;
+          if (alpha < 0.01) discard;
+          gl_FragColor = vec4(vColor, alpha);
+        }
+      `,
+      transparent: true,
+      depthWrite: false,
+      blending: THREE.AdditiveBlending,
+      vertexColors: true,
+    });
+    field.add(new THREE.Points(geometry, material));
   });
   return field;
 }
@@ -676,6 +724,9 @@ function updateScene(time, motionTime = time) {
   celestialField.rotation.x = Math.sin(frameTime * 0.2) * 0.018;
   celestialField.rotation.y = frameTime * 0.035;
   celestialField.rotation.z = Math.sin(frameTime * 0.17) * 0.012;
+  stars.children.forEach((starLayer) => {
+    starLayer.material.uniforms.uTime.value = motionTime;
+  });
   nodes.forEach(({ group, definition }, index) => {
     const selected = focused.has(index);
     const pulse = selected ? 1 : 0;
