@@ -1,7 +1,9 @@
 export const FPS = 30;
 export const SCENE_ONE_END = 6.4;
 export const SCENE_TWO_END = 10.733;
-export const SCENE_DURATION = 16.167;
+export const SCENE_THREE_END = 16.167;
+export const SCENE_FOUR_START = SCENE_THREE_END;
+export const SCENE_DURATION = 24.6;
 export const TOTAL_FRAMES = Math.round(SCENE_DURATION * FPS);
 export const WAVE_START = 4.3;
 export const WAVE_END = SCENE_ONE_END;
@@ -30,6 +32,10 @@ export const SUBTITLE_CUES = [
   { start: 10.733, end: 12.18, text: '六合乍裂——那声波' },
   { start: 12.18, end: 14.8, text: '就此被冻结在黑' },
   { start: 14.8, end: 15.4, text: '暗深处。' },
+  { start: 16.14, end: 18.32, text: '它没有消失，只是化作一道' },
+  { start: 18.32, end: 20.4, text: '极淡的印记，悄悄' },
+  { start: 20.4, end: 22.36, text: '写进了星系与星系' },
+  { start: 22.36, end: 23.66, text: '之间的距离里。' },
 ];
 
 export function getSubtitleAtTime(time) {
@@ -93,7 +99,7 @@ export function getRecombinationState(time) {
 
 export function getSceneThreeState(time) {
   const elapsed = Math.max(0, time - SCENE_TWO_END);
-  const duration = SCENE_DURATION - SCENE_TWO_END;
+  const duration = SCENE_THREE_END - SCENE_TWO_END;
   const progress = Math.min(1, elapsed / duration);
   const impactClock = Math.max(0, (elapsed - SCENE_THREE_IMPACT_DELAY) / SCENE_THREE_IMPACT_TRAVEL);
   const pathPosition = Math.min(1, impactClock);
@@ -102,7 +108,7 @@ export function getSceneThreeState(time) {
   const freeze = smoothRange(time, SCENE_TWO_END + 3.8, SCENE_TWO_END + 4.65);
 
   return {
-    active: time >= SCENE_TWO_END && time <= SCENE_DURATION,
+    active: time >= SCENE_TWO_END && time <= SCENE_THREE_END,
     progress,
     reveal: smoothRange(time, SCENE_TWO_END, SCENE_TWO_END + 0.45),
     pathPosition,
@@ -115,5 +121,25 @@ export function getSceneThreeState(time) {
     freeze,
     rippleStrength: 1 - freeze,
     coreStrength: 1,
+  };
+}
+
+export function getSceneFourState(time) {
+  const elapsed = Math.max(0, time - SCENE_FOUR_START);
+  const duration = SCENE_DURATION - SCENE_FOUR_START;
+  const progress = Math.min(1, elapsed / duration);
+  const constellationReveal = smoothRange(time, SCENE_FOUR_START + 0.28, SCENE_FOUR_START + 2.2);
+  const lineReveal = smoothRange(time, SCENE_FOUR_START + 0.82, SCENE_FOUR_START + 3.2);
+  const imprintFade = smoothRange(time, SCENE_FOUR_START + 1.25, SCENE_FOUR_START + 4.8);
+  const distanceReveal = smoothRange(time, SCENE_FOUR_START + 2.15, SCENE_FOUR_START + 4.1);
+
+  return {
+    active: time >= SCENE_FOUR_START && time <= SCENE_DURATION,
+    progress,
+    reveal: smoothRange(time, SCENE_FOUR_START, SCENE_FOUR_START + 0.72),
+    constellationReveal,
+    lineReveal,
+    imprintFade,
+    distanceReveal,
   };
 }

@@ -3,6 +3,8 @@ import { describe, expect, it } from 'vitest';
 import {
   PYRAMID_RAYS,
   SCENE_ONE_END,
+  SCENE_THREE_END,
+  SCENE_FOUR_START,
   SCENE_THREE_IMPACT_DELAY,
   SCENE_THREE_IMPACT_TRAVEL,
   SCENE_TWO_END,
@@ -10,6 +12,7 @@ import {
   WAVE_END,
   WAVE_START,
   getRecombinationState,
+  getSceneFourState,
   getSceneThreeState,
   getSelectionAtTime,
   getLabelRevealAtTime,
@@ -24,8 +27,10 @@ describe('scene one timeline', () => {
   it('maps the first two scenes onto the cleaned SRT cues', () => {
     expect(SCENE_ONE_END).toBe(6.4);
     expect(SCENE_TWO_END).toBe(10.733);
-    expect(SCENE_DURATION).toBe(16.167);
-    expect(TOTAL_FRAMES).toBe(485);
+    expect(SCENE_THREE_END).toBe(16.167);
+    expect(SCENE_FOUR_START).toBe(SCENE_THREE_END);
+    expect(SCENE_DURATION).toBe(24.6);
+    expect(TOTAL_FRAMES).toBe(738);
     expect(getSubtitleAtTime(0.1)).toBe('');
     expect(getSubtitleAtTime(0.14)).toBe('很久以前，宇宙是一锅');
     expect(getSubtitleAtTime(2.5)).toBe('滚烫的等离子体——');
@@ -36,6 +41,10 @@ describe('scene one timeline', () => {
     expect(getSubtitleAtTime(10.733)).toBe('六合乍裂——那声波');
     expect(getSubtitleAtTime(12.18)).toBe('就此被冻结在黑');
     expect(getSubtitleAtTime(14.8)).toBe('暗深处。');
+    expect(getSubtitleAtTime(16.2)).toBe('它没有消失，只是化作一道');
+    expect(getSubtitleAtTime(18.5)).toBe('极淡的印记，悄悄');
+    expect(getSubtitleAtTime(21.1)).toBe('写进了星系与星系');
+    expect(getSubtitleAtTime(22.8)).toBe('之间的距离里。');
     expect(getSubtitleAtTime(SCENE_DURATION)).toBe('');
   });
 });
@@ -84,11 +93,12 @@ describe('plasma focus and wave motion', () => {
   it('moves one wave into a single spherical 六合 core', () => {
     const firstFrame = getSceneThreeState(SCENE_TWO_END);
     const middle = getSceneThreeState(13.2);
-    const lastFrame = getSceneThreeState(SCENE_DURATION);
+    const lastFrame = getSceneThreeState(SCENE_THREE_END);
 
     expect(firstFrame).toMatchObject({ active: true, progress: 0, reveal: 0, pathPosition: 0 });
     expect(middle.pathPosition).toBe(1);
     expect(lastFrame).toMatchObject({ active: true, progress: 1, pathPosition: 1, freeze: 1 });
+    expect(getSceneThreeState(SCENE_THREE_END + 1 / 30).active).toBe(false);
   });
 
   it('counts the impact only after the travelling wave reaches the core', () => {
@@ -105,7 +115,7 @@ describe('plasma focus and wave motion', () => {
     const impactTime = SCENE_TWO_END + SCENE_THREE_IMPACT_DELAY + SCENE_THREE_IMPACT_TRAVEL;
     const atImpact = getSceneThreeState(impactTime);
     const duringFreeze = getSceneThreeState(SCENE_TWO_END + 4.2);
-    const frozen = getSceneThreeState(SCENE_DURATION);
+    const frozen = getSceneThreeState(SCENE_THREE_END);
 
     expect(atImpact.completedImpacts).toBe(1);
     expect(atImpact.impactClock).toBeCloseTo(1, 8);
@@ -116,6 +126,17 @@ describe('plasma focus and wave motion', () => {
     expect(frozen.coreStrength).toBe(1);
     expect(frozen.pathPosition).toBe(1);
     expect(frozen.impactClock).toBeGreaterThan(1);
+  });
+
+  it('starts the Orion distance-imprint scene after the frozen core endpoint', () => {
+    const firstFrame = getSceneFourState(SCENE_FOUR_START);
+    const reveal = getSceneFourState(SCENE_FOUR_START + 1.4);
+    const lastFrame = getSceneFourState(SCENE_DURATION);
+
+    expect(firstFrame).toMatchObject({ active: true, progress: 0, reveal: 0 });
+    expect(reveal.constellationReveal).toBeGreaterThan(0);
+    expect(reveal.lineReveal).toBeGreaterThan(0);
+    expect(lastFrame).toMatchObject({ active: true, progress: 1, imprintFade: 1, distanceReveal: 1 });
   });
 
   it('reveals a sparse label subset that jumps on the next beat', () => {
