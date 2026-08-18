@@ -38,6 +38,88 @@ h1 { margin: 0; font: 500 clamp(28px, 3.2vw, 58px)/1 "Noto Serif SC", "Songti SC
 .minor-label { min-width: 58px; color: rgba(222, 229, 240, 0.64); font-size: 10px; font-weight: 400; }
 .minor-label small { margin-top: 2px; color: rgba(178, 190, 211, 0.46); font-size: 7px; }
 
+.epoch-marker {
+  position: absolute;
+  top: clamp(34px, 7vh, 82px);
+  right: clamp(26px, 5vw, 92px);
+  z-index: 4;
+  display: grid;
+  justify-items: end;
+  gap: 5px;
+  opacity: 0;
+  transform: translateY(8px);
+  color: rgba(213, 230, 237, 0.7);
+  text-align: right;
+  pointer-events: none;
+}
+.epoch-marker p { margin: 0 0 2px; color: #62e5f4; font: 600 8px/1.2 ui-monospace, SFMono-Regular, monospace; letter-spacing: 0.12em; }
+.epoch-marker strong { color: rgba(248, 241, 224, 0.92); font: 400 clamp(14px, 1.2vw, 21px)/1.15 "Iowan Old Style", "Times New Roman", serif; }
+.epoch-marker span { font: 500 8px/1.2 ui-monospace, SFMono-Regular, monospace; }
+.epoch-marker b { color: #ffb83e; font-weight: 600; }
+
+.impact-marker {
+  position: absolute;
+  top: clamp(34px, 7vh, 82px);
+  right: clamp(26px, 5vw, 92px);
+  z-index: 4;
+  display: grid;
+  justify-items: end;
+  gap: 5px;
+  opacity: 0;
+  transform: translateY(8px);
+  color: rgba(194, 221, 231, 0.72);
+  text-align: right;
+  pointer-events: none;
+}
+.impact-marker p { margin: 0 0 2px; color: #62e5f4; font: 600 8px/1.2 ui-monospace, SFMono-Regular, monospace; letter-spacing: 0.12em; }
+.impact-marker strong { color: rgba(248, 241, 224, 0.94); font: 400 clamp(15px, 1.25vw, 22px)/1.1 ui-monospace, SFMono-Regular, monospace; }
+.impact-marker strong b { color: #ffb83e; font-weight: 600; }
+.impact-marker span { font: 500 8px/1.2 ui-monospace, SFMono-Regular, monospace; }
+
+.wave-equation {
+  position: absolute;
+  z-index: 4;
+  width: clamp(135px, 12vw, 190px);
+  min-height: 40px;
+  opacity: 0;
+  visibility: hidden;
+  transform: translate(-50%, -108%);
+  pointer-events: none;
+  filter: drop-shadow(0 4px 12px rgba(0, 0, 0, 0.82));
+}
+.wave-equation.is-visible { visibility: visible; }
+.wave-equation-trace { position: absolute; inset: -12% -7% -18%; width: 114%; height: 138%; overflow: visible; }
+.wave-equation-trace path {
+  fill: none;
+  stroke: rgba(69, 222, 244, 0.76);
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-dasharray: 8 7;
+  vector-effect: non-scaling-stroke;
+}
+.wave-equation-main {
+  position: relative;
+  margin: 0;
+  color: rgba(247, 249, 252, 0.96);
+  font: 400 clamp(10px, 0.76vw, 14px)/1.15 "Iowan Old Style", "Times New Roman", serif;
+  white-space: nowrap;
+  text-align: center;
+  text-shadow: 0 0 18px rgba(177, 231, 255, 0.22);
+}
+.wave-equation-values {
+  position: relative;
+  display: flex;
+  justify-content: center;
+  gap: clamp(5px, 0.5vw, 8px);
+  margin: 4px 0 0;
+  color: rgba(202, 216, 231, 0.72);
+  font: 500 clamp(5px, 0.34vw, 6px)/1.2 ui-monospace, SFMono-Regular, monospace;
+  white-space: nowrap;
+}
+.wave-equation-values b { color: #62e5f4; font-weight: 600; }
+.wave-equation-values .source-value,
+.wave-equation-values .source-value b { color: #ffb83e; }
+
 .caption-lockup { left: 8%; right: 8%; bottom: clamp(76px, 10vh, 132px); text-align: center; }
 .subtitle { min-height: 1.6em; margin: 0; color: #f4f0e8; font: 500 clamp(16px, 1.45vw, 26px)/1.5 "Noto Serif SC", "Songti SC", serif; text-shadow: 0 3px 18px rgba(0, 0, 0, 0.9); }
 .caption { margin: 10px 0 0; color: rgba(135, 218, 234, 0.66); font: 10px/1.2 ui-monospace, SFMono-Regular, monospace; letter-spacing: 0.12em; }
@@ -66,6 +148,15 @@ h1 { margin: 0; font: 500 clamp(28px, 3.2vw, 58px)/1 "Noto Serif SC", "Songti SC
   .node-label { min-width: 48px; font-size: 7px; }
   .node-label small { margin-top: 1px; font-size: 6px; }
   .minor-label { display: none !important; }
+  .epoch-marker { top: 10px; right: 12px; gap: 2px; }
+  .epoch-marker p, .epoch-marker span { font-size: 5px; }
+  .epoch-marker strong { font-size: 10px; }
+  .impact-marker { top: 10px; right: 12px; gap: 2px; }
+  .impact-marker p, .impact-marker span { font-size: 5px; }
+  .impact-marker strong { font-size: 10px; }
+  .wave-equation { width: 120px; min-height: 34px; }
+  .wave-equation-main { font-size: 9px; }
+  .wave-equation-values { gap: 4px; margin-top: 3px; font-size: 4px; }
   .control-rail { bottom: 4px; gap: 6px; }
   .icon-button { width: 22px; height: 22px; }
   .icon-button svg { width: 10px; height: 10px; }

@@ -6,19 +6,27 @@ import {
 } from './chladni.js';
 import {
   FPS,
+  SCENE_ONE_END,
+  SCENE_TWO_END,
   SCENE_DURATION,
   TOTAL_FRAMES,
   PYRAMID_RAYS,
   getCameraPushAtTime,
   getLabelRevealAtTime,
+  getRecombinationState,
+  getSceneThreeState,
   getSelectionAtTime,
   getSubtitleAtTime,
   getWaveState,
 } from './timeline.js';
+import { getDopplerValues } from './wave-physics.js';
 import './style.css';
 
 const HOT_COLORS = [0xffffdc, 0xffc735, 0xff7418, 0xff2f0c, 0x8d1207];
 const WAVE_COLOR = 0xb9e6ff;
+const WAVE_BASE_COLOR = new THREE.Color(WAVE_COLOR);
+const WAVE_QUIET_COLOR = new THREE.Color(0xffffff);
+const waveDisplayColor = new THREE.Color();
 
 const audio = document.querySelector('#narration');
 const canvas = document.querySelector('#scene');
@@ -28,6 +36,17 @@ const captionEl = document.querySelector('#caption');
 const timecodeEl = document.querySelector('#timecode');
 const playButton = document.querySelector('#play');
 const resetButton = document.querySelector('#reset');
+const eyebrowEl = document.querySelector('.eyebrow');
+const titleSubEl = document.querySelector('.title-sub');
+const epochMarkerEl = document.querySelector('#epoch-marker');
+const baryonVelocityEl = document.querySelector('#baryon-velocity');
+const impactMarkerEl = document.querySelector('#impact-marker');
+const impactCountEl = document.querySelector('#impact-count');
+const waveEquationEl = document.querySelector('#wave-equation');
+const waveEquationPathEl = document.querySelector('#wave-equation-path');
+const waveF0El = document.querySelector('#wave-f0');
+const waveVelocityEl = document.querySelector('#wave-v');
+const waveObservedFrequencyEl = document.querySelector('#wave-fp');
 
 createIcons({ icons: { Play, Pause, RotateCcw } });
 
@@ -36,7 +55,7 @@ renderer.setClearColor(0x020407, 1);
 renderer.outputColorSpace = THREE.SRGBColorSpace;
 
 const scene = new THREE.Scene();
-scene.fog = new THREE.FogExp2(0x020407, 0.012);
+scene.fog = new THREE.FogExp2(0x020407, 0.006);
 const camera = new THREE.PerspectiveCamera(43, 1, 0.1, 100);
 camera.position.set(0, 0.1, 12.5);
 camera.lookAt(0, 0, 0);
@@ -49,6 +68,8 @@ const texture = createGaussianTexture();
 const referenceCosmicWebData = await loadReferenceCosmicWeb();
 const stars = createBackgroundStars();
 celestialField.add(stars);
+const cmbResidual = createCmbResidualField();
+celestialField.add(cmbResidual);
 
 const nodeDefinitions = [
   { label: '太阳', latin: 'SUN', position: [-3.35, 1.42, 0.4], radius: 0.62, color: HOT_COLORS[1], spin: 0.42, phase: 0.2 },
@@ -83,6 +104,8 @@ minorBodies.forEach((body) => celestialField.add(body.group));
 
 const pyramidRays = PYRAMID_RAYS.map(() => createPyramidRay());
 pyramidRays.forEach((line) => celestialField.add(line));
+const boundaryField = createBoundaryLobes();
+celestialField.add(boundaryField.group);
 const wave = createWavePacket();
 celestialField.add(wave.group);
 
@@ -113,8 +136,9 @@ function createGaussianTexture() {
   const ctx = canvas2d.getContext('2d');
   const gradient = ctx.createRadialGradient(size / 2, size / 2, 0, size / 2, size / 2, size / 2);
   gradient.addColorStop(0, 'rgba(255,255,255,1)');
-  gradient.addColorStop(0.18, 'rgba(255,255,255,0.95)');
-  gradient.addColorStop(0.55, 'rgba(255,255,255,0.28)');
+  gradient.addColorStop(0.12, 'rgba(255,255,255,0.96)');
+  gradient.addColorStop(0.38, 'rgba(255,255,255,0.18)');
+  gradient.addColorStop(0.68, 'rgba(255,255,255,0.02)');
   gradient.addColorStop(1, 'rgba(255,255,255,0)');
   ctx.fillStyle = gradient;
   ctx.fillRect(0, 0, size, size);
@@ -154,9 +178,9 @@ function createBackgroundStars() {
   };
 
   [
-    { count: 1050, size: 0.042, opacity: 0.56 },
-    { count: 420, size: 0.078, opacity: 0.72 },
-    { count: 120, size: 0.13, opacity: 0.64 },
+    { count: 1400, size: 0.042, opacity: 0.56 },
+    { count: 560, size: 0.078, opacity: 0.72 },
+    { count: 170, size: 0.13, opacity: 0.64 },
   ].forEach((layer, layerIndex) => {
     const positions = [];
     const colors = [];
@@ -201,34 +225,49 @@ function createBackgroundStars() {
         uTime: { value: 0 },
         uSize: { value: layer.size * 680 },
         uOpacity: { value: layer.opacity },
+        uReveal: { value: 0 },
+        uAbsorbProgress: { value: 0 },
+        uAbsorbTarget: { value: new THREE.Vector3() },
       },
       vertexShader: `
         attribute float aPhase;
         attribute float aSpeed;
         uniform float uTime;
         uniform float uSize;
+        uniform float uAbsorbProgress;
+        uniform vec3 uAbsorbTarget;
         varying vec3 vColor;
         varying float vPulse;
+        varying float vCapture;
         void main() {
           vColor = color;
           float wave = 0.5 + 0.5 * sin(uTime * aSpeed + aPhase);
           vPulse = smoothstep(0.18, 0.82, wave);
-          vec4 mvPosition = modelViewMatrix * vec4(position, 1.0);
+          float captureStart = fract(aPhase / 6.2831853) * 0.62;
+          float localProgress = clamp((uAbsorbProgress - captureStart) / 0.38, 0.0, 1.0);
+          vCapture = (1.0 - exp(-5.0 * localProgress)) / 0.993262;
+          vec3 displaced = mix(position, uAbsorbTarget, vCapture);
+          vec4 mvPosition = modelViewMatrix * vec4(displaced, 1.0);
           gl_PointSize = uSize * (0.62 + vPulse * 0.62) / max(1.0, -mvPosition.z);
           gl_Position = projectionMatrix * mvPosition;
         }
       `,
       fragmentShader: `
         uniform float uOpacity;
+        uniform float uReveal;
+        uniform float uAbsorbProgress;
         varying vec3 vColor;
         varying float vPulse;
+        varying float vCapture;
         void main() {
           float distanceToCenter = length(gl_PointCoord - vec2(0.5));
-          float core = 1.0 - smoothstep(0.0, 0.16, distanceToCenter);
-          float halo = 1.0 - smoothstep(0.12, 0.5, distanceToCenter);
+          float core = 1.0 - smoothstep(0.0, 0.14, distanceToCenter);
+          float halo = 1.0 - smoothstep(0.1, 0.4, distanceToCenter);
           float coreLight = core * (0.58 + vPulse * 0.42);
-          float haloLight = halo * (0.035 + vPulse * 0.9);
-          float alpha = (coreLight + haloLight) * uOpacity;
+          float haloLight = halo * (0.025 + vPulse * 0.5);
+          float capturedFade = 1.0 - smoothstep(0.88, 0.995, vCapture);
+          float convergenceBoost = 1.0 + sin(uAbsorbProgress * 3.1415926) * 0.42;
+          float alpha = (coreLight + haloLight) * uOpacity * uReveal * capturedFade * convergenceBoost;
           if (alpha < 0.01) discard;
           gl_FragColor = vec4(vColor, alpha);
         }
@@ -243,6 +282,338 @@ function createBackgroundStars() {
   return field;
 }
 
+function createCmbResidualField() {
+  const count = 1100;
+  const positions = [];
+  const colors = [];
+  const warm = new THREE.Color(0xb9512d);
+  const cool = new THREE.Color(0x55a9c0);
+  const neutral = new THREE.Color(0x70818d);
+
+  for (let i = 0; i < count; i += 1) {
+    const xNoise = ((i * 73) % count) / count;
+    const yNoise = ((i * 419) % count) / count;
+    const x = (xNoise * 2 - 1) * 6.6 + Math.sin(i * 1.71) * 0.12;
+    const y = (yNoise * 2 - 1) * 3.65 + Math.cos(i * 1.13) * 0.08;
+    const z = -4.2 + Math.sin(i * 0.37) * 0.7;
+    const temperature = Math.sin(x * 1.18) + Math.cos(y * 1.76) + Math.sin((x - y) * 0.63);
+    const strength = Math.min(1, Math.abs(temperature) / 2.4);
+    const color = neutral.clone().lerp(temperature >= 0 ? warm : cool, 0.42 + strength * 0.5);
+    const brightness = 0.28 + strength * 0.58;
+
+    positions.push(x, y, z);
+    colors.push(color.r * brightness, color.g * brightness, color.b * brightness);
+  }
+
+  const geometry = new THREE.BufferGeometry();
+  geometry.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
+  geometry.setAttribute('color', new THREE.Float32BufferAttribute(colors, 3));
+  const material = new THREE.PointsMaterial({
+    size: 0.07,
+    map: texture,
+    vertexColors: true,
+    transparent: true,
+    opacity: 0,
+    depthWrite: false,
+    blending: THREE.AdditiveBlending,
+    sizeAttenuation: true,
+  });
+  const points = new THREE.Points(geometry, material);
+  points.visible = false;
+  return points;
+}
+
+function createBoundaryLobes() {
+  const positions = [
+    [2.55, 0.06, 0.18],
+    [1.25, 1.88, -0.34],
+    [-1.25, 1.88, 0.32],
+    [-2.55, -0.06, -0.2],
+    [-1.2, -1.88, 0.38],
+    [1.25, -1.88, -0.4],
+  ];
+  const group = new THREE.Group();
+  const ember = new THREE.Color(0xff3b0d);
+  const molten = new THREE.Color(0xffcb70);
+  const lobes = positions.map((position, lobeIndex) => {
+    const pointCount = 360;
+    const basePositions = new Float32Array(pointCount * 3);
+    const currentPositions = new Float32Array(pointCount * 3);
+    const drift = new Float32Array(pointCount * 3);
+    const colors = new Float32Array(pointCount * 3);
+
+    for (let i = 0; i < pointCount; i += 1) {
+      const theta = i * 2.39996323 + lobeIndex * 0.71;
+      const phi = Math.acos(1 - 2 * ((i + 0.5) / pointCount));
+      const noise = 0.94 + Math.sin(i * 1.73 + lobeIndex) * 0.04 + Math.cos(i * 0.47) * 0.025;
+      const radius = 0.64 * noise;
+      const x = Math.cos(theta) * Math.sin(phi) * radius;
+      const y = Math.cos(phi) * radius;
+      const z = Math.sin(theta) * Math.sin(phi) * radius;
+      const offset = i * 3;
+      basePositions.set([x, y, z], offset);
+      currentPositions.set([x, y, z], offset);
+      const inverseLength = 1 / Math.max(0.001, Math.hypot(x, y, z));
+      const driftScale = 0.08 + ((i * 31 + lobeIndex * 17) % 23) / 23 * 0.18;
+      drift.set([
+        x * inverseLength * driftScale + Math.sin(i * 0.83) * 0.035,
+        y * inverseLength * driftScale + Math.cos(i * 0.57) * 0.025,
+        z * inverseLength * driftScale + Math.sin(i * 1.17) * 0.04,
+      ], offset);
+      const highlight = 0.18 + ((i * 13) % 19) / 19 * 0.72;
+      const color = ember.clone().lerp(molten, highlight);
+      colors.set([color.r, color.g, color.b], offset);
+    }
+
+    const shell = new THREE.Mesh(
+      new THREE.SphereGeometry(0.62, 40, 28),
+      new THREE.ShaderMaterial({
+        uniforms: {
+          uReveal: { value: 0 },
+          uImpact: { value: 0 },
+          uScar: { value: 0 },
+          uPhase: { value: lobeIndex * 1.37 },
+        },
+        vertexShader: `
+          varying vec3 vObjectPosition;
+          varying vec3 vViewNormal;
+          varying vec3 vViewDirection;
+          void main() {
+            vObjectPosition = position;
+            vec4 viewPosition = modelViewMatrix * vec4(position, 1.0);
+            vViewNormal = normalize(normalMatrix * normal);
+            vViewDirection = normalize(-viewPosition.xyz);
+            gl_Position = projectionMatrix * viewPosition;
+          }
+        `,
+        fragmentShader: `
+          uniform float uReveal;
+          uniform float uImpact;
+          uniform float uScar;
+          uniform float uPhase;
+          varying vec3 vObjectPosition;
+          varying vec3 vViewNormal;
+          varying vec3 vViewDirection;
+          void main() {
+            vec3 p = normalize(vObjectPosition);
+            float broadField = sin(p.x * 14.0 + sin(p.y * 8.0 + uPhase) * 2.2)
+              + sin(p.y * 16.0 - sin(p.z * 9.0 - uPhase) * 1.8)
+              + sin(p.z * 13.0 + sin(p.x * 7.0) * 2.0);
+            float fineField = sin((p.x + p.y) * 31.0 + uPhase)
+              * sin((p.y - p.z) * 27.0 - uPhase * 0.7);
+            float broadCrack = 1.0 - smoothstep(0.035, 0.27, abs(broadField));
+            float fineCrack = 1.0 - smoothstep(0.02, 0.1, abs(fineField));
+            float cracks = pow(clamp(max(broadCrack, fineCrack * 0.44), 0.0, 1.0), 1.12);
+            vec3 normal = normalize(vViewNormal);
+            vec3 viewDirection = normalize(vViewDirection);
+            vec3 lightDirection = normalize(vec3(-0.42, 0.68, 0.72));
+            float diffuse = 0.13 + max(dot(normal, lightDirection), 0.0) * 0.87;
+            float fresnel = pow(1.0 - max(dot(normal, viewDirection), 0.0), 2.2);
+            float specular = pow(max(dot(reflect(-lightDirection, normal), viewDirection), 0.0), 26.0);
+            vec3 darkCrust = (vec3(0.038, 0.004, 0.0015) + vec3(0.095, 0.012, 0.003) * fresnel) * diffuse;
+            vec3 lava = mix(vec3(1.0, 0.055, 0.006), vec3(1.0, 0.62, 0.12), cracks);
+            float crackEnergy = cracks * (0.72 + uScar * 0.42 + uImpact * 1.35);
+            vec3 color = darkCrust + lava * crackEnergy;
+            color += vec3(1.0, 0.08, 0.01) * fresnel * (0.14 + uImpact * 0.5);
+            color += vec3(1.0, 0.46, 0.18) * specular * 0.22;
+            gl_FragColor = vec4(color, uReveal);
+          }
+        `,
+        transparent: true,
+        depthWrite: true,
+      }),
+    );
+    shell.rotation.set(lobeIndex * 0.11, lobeIndex * 0.37, lobeIndex * 0.08);
+
+    const geometry = new THREE.BufferGeometry();
+    geometry.setAttribute('position', new THREE.BufferAttribute(currentPositions, 3));
+    geometry.setAttribute('color', new THREE.BufferAttribute(colors, 3));
+    const points = new THREE.Points(geometry, new THREE.PointsMaterial({
+      size: 0.034,
+      map: texture,
+      vertexColors: true,
+      transparent: true,
+      opacity: 0,
+      depthWrite: false,
+      blending: THREE.AdditiveBlending,
+      sizeAttenuation: true,
+    }));
+    points.rotation.copy(shell.rotation);
+    const atmosphere = new THREE.Mesh(
+      new THREE.SphereGeometry(0.78, 36, 24),
+      new THREE.ShaderMaterial({
+        uniforms: {
+          uReveal: { value: 0 },
+          uImpact: { value: 0 },
+          uPhase: { value: lobeIndex * 0.83 },
+        },
+        vertexShader: `
+          varying vec3 vObjectPosition;
+          varying vec3 vViewNormal;
+          varying vec3 vViewDirection;
+          void main() {
+            vObjectPosition = position;
+            vec4 viewPosition = modelViewMatrix * vec4(position, 1.0);
+            vViewNormal = normalize(normalMatrix * normal);
+            vViewDirection = normalize(-viewPosition.xyz);
+            gl_Position = projectionMatrix * viewPosition;
+          }
+        `,
+        fragmentShader: `
+          uniform float uReveal;
+          uniform float uImpact;
+          uniform float uPhase;
+          varying vec3 vObjectPosition;
+          varying vec3 vViewNormal;
+          varying vec3 vViewDirection;
+          void main() {
+            vec3 p = normalize(vObjectPosition);
+            float viewDot = max(dot(normalize(vViewNormal), normalize(vViewDirection)), 0.0);
+            float fresnel = pow(1.0 - viewDot, 2.15);
+            float flow = 0.5 + 0.5 * sin(p.x * 11.0 + sin(p.y * 8.0 + uPhase) * 1.7 + p.z * 6.0);
+            float density = (0.045 + fresnel * 0.43) * (0.72 + flow * 0.28);
+            vec3 color = mix(vec3(0.72, 0.015, 0.002), vec3(1.0, 0.16, 0.015), fresnel);
+            gl_FragColor = vec4(color, density * uReveal * (1.0 + uImpact * 0.72));
+          }
+        `,
+        transparent: true,
+        depthTest: false,
+        depthWrite: false,
+        blending: THREE.AdditiveBlending,
+      }),
+    );
+    atmosphere.renderOrder = -2;
+
+    const coronaCount = 260;
+    const coronaPositions = new Float32Array(coronaCount * 3);
+    const coronaColors = new Float32Array(coronaCount * 3);
+    for (let i = 0; i < coronaCount; i += 1) {
+      const theta = i * 2.39996323 + lobeIndex * 0.51;
+      const phi = Math.acos(1 - 2 * ((i + 0.5) / coronaCount));
+      const radius = 0.72 + ((i * 31 + lobeIndex * 7) % 29) / 29 * 0.17;
+      const offset = i * 3;
+      coronaPositions.set([
+        Math.cos(theta) * Math.sin(phi) * radius,
+        Math.cos(phi) * radius,
+        Math.sin(theta) * Math.sin(phi) * radius,
+      ], offset);
+      const coronaColor = new THREE.Color(0xff2608).lerp(
+        new THREE.Color(0xff9a32),
+        ((i * 17) % 23) / 23 * 0.45,
+      );
+      coronaColors.set(coronaColor.toArray(), offset);
+    }
+    const coronaGeometry = new THREE.BufferGeometry();
+    coronaGeometry.setAttribute('position', new THREE.BufferAttribute(coronaPositions, 3));
+    coronaGeometry.setAttribute('color', new THREE.BufferAttribute(coronaColors, 3));
+    const corona = new THREE.Points(coronaGeometry, new THREE.PointsMaterial({
+      size: 0.052,
+      map: texture,
+      vertexColors: true,
+      transparent: true,
+      opacity: 0,
+      depthWrite: false,
+      blending: THREE.AdditiveBlending,
+      sizeAttenuation: true,
+    }));
+
+    const center = new THREE.Vector3(...position);
+    const previous = lobeIndex === 0
+      ? new THREE.Vector3(0, 0, 0)
+      : new THREE.Vector3(...positions[lobeIndex - 1]);
+    const contactDirection = previous.sub(center).normalize();
+    const tangentA = new THREE.Vector3(0, 0, 1).cross(contactDirection).normalize();
+    if (tangentA.lengthSq() < 0.01) tangentA.set(0, 1, 0);
+    const tangentB = contactDirection.clone().cross(tangentA).normalize();
+
+    const core = new THREE.Sprite(new THREE.SpriteMaterial({
+      map: texture,
+      color: 0xffe7b0,
+      transparent: true,
+      opacity: 0,
+      depthWrite: false,
+      blending: THREE.AdditiveBlending,
+    }));
+    core.scale.setScalar(0.2);
+    core.position.copy(contactDirection).multiplyScalar(0.62);
+    const burst = new THREE.Sprite(new THREE.SpriteMaterial({
+      map: texture,
+      color: 0xfff0c4,
+      transparent: true,
+      opacity: 0,
+      depthTest: false,
+      depthWrite: false,
+      blending: THREE.AdditiveBlending,
+    }));
+    burst.position.copy(core.position);
+    burst.scale.setScalar(0.3);
+
+    const splashCount = 520;
+    const splashBasePositions = new Float32Array(splashCount * 3);
+    const splashPositions = new Float32Array(splashCount * 3);
+    const splashVelocities = new Float32Array(splashCount * 3);
+    const splashColors = new Float32Array(splashCount * 3);
+    for (let i = 0; i < splashCount; i += 1) {
+      const angle = i * 2.39996323 + lobeIndex * 0.43;
+      const spread = 0.16 + ((i * 29 + lobeIndex * 11) % 41) / 41 * 0.62;
+      const forward = 0.22 + ((i * 17 + lobeIndex * 7) % 37) / 37 * 0.72;
+      const jitterA = Math.cos(angle) * (0.02 + (i % 5) * 0.007);
+      const jitterB = Math.sin(angle) * (0.02 + (i % 7) * 0.006);
+      const origin = contactDirection.clone().multiplyScalar(0.59)
+        .addScaledVector(tangentA, jitterA)
+        .addScaledVector(tangentB, jitterB);
+      const velocity = contactDirection.clone().multiplyScalar(forward)
+        .addScaledVector(tangentA, Math.cos(angle) * spread)
+        .addScaledVector(tangentB, Math.sin(angle) * spread);
+      const offset = i * 3;
+      splashBasePositions.set(origin.toArray(), offset);
+      splashPositions.set(origin.toArray(), offset);
+      splashVelocities.set(velocity.toArray(), offset);
+      const hotness = 0.48 + ((i * 23 + lobeIndex * 13) % 31) / 31 * 0.52;
+      const splashColor = new THREE.Color(0xff4b13).lerp(new THREE.Color(0xfff4ce), hotness);
+      splashColors.set(splashColor.toArray(), offset);
+    }
+    const splashGeometry = new THREE.BufferGeometry();
+    splashGeometry.setAttribute('position', new THREE.BufferAttribute(splashPositions, 3));
+    splashGeometry.setAttribute('color', new THREE.BufferAttribute(splashColors, 3));
+    const splash = new THREE.Points(splashGeometry, new THREE.PointsMaterial({
+      size: 0.11,
+      map: texture,
+      color: 0xffcf82,
+      vertexColors: true,
+      transparent: true,
+      opacity: 0,
+      depthTest: false,
+      depthWrite: false,
+      blending: THREE.AdditiveBlending,
+      sizeAttenuation: true,
+    }));
+
+    const lobe = new THREE.Group();
+    lobe.add(atmosphere, corona, shell, points, core, burst, splash);
+    lobe.position.set(...position);
+    lobe.userData = {
+      shell,
+      points,
+      atmosphere,
+      corona,
+      core,
+      burst,
+      splash,
+      basePositions,
+      drift,
+      splashBasePositions,
+      splashVelocities,
+      surfaceBaseRotation: shell.rotation.clone(),
+      phase: lobeIndex * 0.73,
+    };
+    group.add(lobe);
+    return lobe;
+  });
+  group.visible = false;
+  return { group, lobes, positions: positions.map((position) => new THREE.Vector3(...position)) };
+}
+
 function createPlasmaNode(definition, index) {
   if (definition.shape === 'chladni' && definition.boundary === 'volume') {
     return createVolumetricChladniNode(definition, index);
@@ -250,7 +621,7 @@ function createPlasmaNode(definition, index) {
   if (definition.shape === 'chladni') return createChladniNode(definition, index);
   const group = new THREE.Group();
   const halo = new THREE.Sprite(new THREE.SpriteMaterial({ map: texture, color: definition.color, transparent: true, opacity: 0.2, depthWrite: false, blending: THREE.AdditiveBlending }));
-  halo.scale.setScalar(definition.radius * 3.4);
+  halo.scale.setScalar(definition.radius * 2.7);
   group.add(halo);
 
   const mantle = new THREE.Sprite(new THREE.SpriteMaterial({ map: texture, color: definition.color, transparent: true, opacity: 0.42, depthWrite: false, blending: THREE.AdditiveBlending }));
@@ -562,7 +933,7 @@ function createReferenceCosmicWebNode(definition, index) {
     const z = data[offset + 2] * scale;
     positions.push(x, y, z);
     const sourceColor = bucketColors[Math.min(47, Math.max(0, Math.round(data[offset + 5])))] || bucketColors[24];
-    const brightness = 0.28 + density * 1.05;
+    const brightness = 0.38 + density * 1.15;
     colors.push(
       Math.min(1, sourceColor[0] * brightness),
       Math.min(1, sourceColor[1] * brightness),
@@ -579,7 +950,7 @@ function createReferenceCosmicWebNode(definition, index) {
   }));
   group.add(glow);
   const pattern = new THREE.Points(geometry, new THREE.PointsMaterial({
-    size: 0.014, map: texture, vertexColors: true, transparent: true, opacity: 0.9,
+    size: 0.02, map: texture, vertexColors: true, transparent: true, opacity: 0.9,
     depthWrite: false, blending: THREE.AdditiveBlending, sizeAttenuation: true,
   }));
   group.add(pattern);
@@ -599,7 +970,7 @@ function createReferenceCosmicWebNode(definition, index) {
 function createMinorBody(definition, index) {
   const group = new THREE.Group();
   const halo = new THREE.Sprite(new THREE.SpriteMaterial({ map: texture, color: 0x7a0c02, transparent: true, opacity: 0.16, depthWrite: false, blending: THREE.AdditiveBlending }));
-  halo.scale.setScalar(definition.scale * 4.5);
+  halo.scale.setScalar(definition.scale * 3.5);
   group.add(halo);
   const core = new THREE.Sprite(new THREE.SpriteMaterial({ map: texture, color: 0xff2f0c, transparent: true, opacity: 0.86, depthWrite: false, blending: THREE.AdditiveBlending }));
   core.scale.setScalar(definition.scale * 1.35);
@@ -654,12 +1025,12 @@ function createWavePacket() {
   group.add(particles);
 
   const rings = new THREE.Group();
-  for (let i = 0; i < 7; i += 1) {
+  for (let i = 0; i < 9; i += 1) {
     const ring = new THREE.Mesh(
-      new THREE.RingGeometry(0.58, 1, 40),
-      new THREE.MeshBasicMaterial({ color: WAVE_COLOR, transparent: true, opacity: 0.12, side: THREE.DoubleSide, depthWrite: false, blending: THREE.AdditiveBlending }),
+      new THREE.RingGeometry(0.88, 1, 64),
+      new THREE.MeshBasicMaterial({ color: WAVE_COLOR, transparent: true, opacity: 0.18, side: THREE.DoubleSide, depthTest: false, depthWrite: false, blending: THREE.AdditiveBlending }),
     );
-    ring.userData.s = (i / 6) * 2 - 1;
+    ring.userData.s = (i / 8) * 2 - 1;
     rings.add(ring);
   }
   group.add(rings);
@@ -670,10 +1041,15 @@ function createWavePacket() {
 
 function updateWave(time) {
   const state = getWaveState(time);
+  const recombination = getRecombinationState(time);
   wave.group.visible = state.active;
   if (!state.active) return;
+  const waveTime = time >= SCENE_ONE_END ? recombination.waveTime : time;
+  const shellExpansion = 1 + recombination.progress * 1.7;
+  const waveMotion = time >= SCENE_ONE_END ? recombination.baryonVelocity : 1;
+  waveDisplayColor.copy(WAVE_BASE_COLOR).lerp(WAVE_QUIET_COLOR, recombination.silenceBrightness);
   const selection = getSelectionAtTime(time).nodes;
-  const edgePosition = state.progress * selection.length;
+  const edgePosition = Math.min(state.progress, 0.9) * selection.length;
   const edgeIndex = Math.min(selection.length - 1, Math.floor(edgePosition));
   const edgeProgress = 0.12 + (edgePosition - edgeIndex) * 0.76;
   const from = nodes[selection[edgeIndex]].group.position;
@@ -684,93 +1060,332 @@ function updateWave(time) {
   const side = new THREE.Vector3(0, 1, 0).cross(tangent).normalize();
   if (side.lengthSq() < 0.01) side.set(1, 0, 0);
   const up = tangent.clone().cross(side).normalize();
-  wave.group.position.copy(center).addScaledVector(up, Math.sin(time * 19) * 0.045);
+  wave.group.position.copy(center).addScaledVector(up, Math.sin(waveTime * 19) * 0.045 * waveMotion);
   wave.group.quaternion.setFromUnitVectors(new THREE.Vector3(0, 0, 1), tangent);
   wave.userData = wave.group.userData;
-  wave.group.userData.core.scale.setScalar(state.radius * 1.65);
+  wave.group.userData.core.scale.setScalar(
+    state.radius * 1.65 * (1 + recombination.progress * 0.7) * (1 + recombination.silenceBrightness),
+  );
+  const coreOpacity = 0.9 * (1 - recombination.progress * 0.5);
+  wave.group.userData.core.material.color.copy(waveDisplayColor);
+  wave.group.userData.core.material.opacity = THREE.MathUtils.lerp(coreOpacity, 1, recombination.silenceBrightness);
+  wave.group.userData.particles.material.opacity = THREE.MathUtils.lerp(0.92, 1, recombination.silenceBrightness);
+  wave.group.userData.particles.material.size = THREE.MathUtils.lerp(0.044, 0.072, recombination.silenceBrightness);
   const positionAttribute = wave.geometry.getAttribute('position');
+  const colorAttribute = wave.geometry.getAttribute('color');
   wave.group.userData.meta.forEach((particle, index) => {
-    const phase = particle.s * 19 - time * 34;
+    const phase = particle.s * 19 - waveTime * 34;
     const envelope = Math.exp(-particle.s * particle.s * 3.2);
     const displacement = Math.sin(phase) * state.radius * 0.58 * envelope;
-    const localS = particle.s * state.radius * 2.7 + displacement;
-    const localRadius = state.radius * (0.34 + 0.12 * Math.cos(phase));
+    const localS = (particle.s * state.radius * 2.7 + displacement) * (1 + recombination.progress * 0.8);
+    const localRadius = state.radius * (0.34 + 0.12 * Math.cos(phase)) * shellExpansion;
     const x = Math.cos(particle.angle) * localRadius * particle.radial;
     const y = Math.sin(particle.angle) * localRadius * particle.radial;
     positionAttribute.setXYZ(index, x, y, localS);
+    colorAttribute.setXYZ(index, waveDisplayColor.r, waveDisplayColor.g, waveDisplayColor.b);
   });
   wave.group.userData.rings.children.forEach((ring) => {
-    const ringPhase = ring.userData.s * 19 - time * 34;
+    const ringPhase = ring.userData.s * 19 - waveTime * 34;
     const envelope = Math.exp(-ring.userData.s * ring.userData.s * 2.8);
-    ring.position.z = ring.userData.s * state.radius * 2.7
-      + Math.sin(ringPhase) * state.radius * 0.58 * envelope;
-    ring.scale.setScalar(state.radius * (0.64 + 0.12 * Math.cos(ringPhase)));
-    ring.material.opacity = 0.05 + Math.max(0, Math.cos(ringPhase)) * 0.22 * envelope;
-    ring.rotation.z = time * 0.7 + ring.userData.s;
+    ring.position.z = ring.userData.s * 0.42
+      + Math.sin(ringPhase) * 0.045 * envelope;
+    ring.position.z *= 1 + recombination.progress * 0.8;
+    ring.scale.setScalar((0.31 + (0.5 + 0.5 * Math.cos(ringPhase)) * 0.22 * envelope) * shellExpansion);
+    ring.material.opacity = (0.1 + Math.max(0, Math.cos(ringPhase)) * 0.38 * envelope)
+      * (1 - recombination.progress * 0.35);
+    ring.rotation.z = waveTime * 0.7 + ring.userData.s;
   });
   positionAttribute.needsUpdate = true;
+  colorAttribute.needsUpdate = true;
+}
+
+function updateBoundaryLobes(state, motionTime) {
+  boundaryField.group.visible = state.active;
+  if (!state.active) return;
+
+  const emberTint = new THREE.Color(0xff4b16);
+  const impactTint = new THREE.Color(0xffe7ae);
+  boundaryField.lobes.forEach((lobe, index) => {
+    const targetPosition = index + 1;
+    const impactAge = state.impactClock - targetPosition;
+    const approachProgress = THREE.MathUtils.clamp((state.pathPosition - targetPosition + 0.3) / 0.3, 0, 1);
+    const recovery = impactAge <= 0 ? 1 : 1 - smoothstep(THREE.MathUtils.clamp(impactAge / 0.34, 0, 1));
+    const compression = smoothstep(approachProgress) * recovery;
+    const flash = impactAge < 0 ? 0 : Math.exp(-impactAge * 7.5);
+    const fracture = impactAge < 0 ? 0 : smoothstep(THREE.MathUtils.clamp(impactAge / 0.7, 0, 1));
+    const scar = impactAge < 0 ? 0 : smoothstep(THREE.MathUtils.clamp(impactAge / 0.16, 0, 1));
+    const {
+      shell,
+      points,
+      atmosphere,
+      corona,
+      core,
+      burst,
+      splash,
+      basePositions,
+      drift,
+      splashBasePositions,
+      splashVelocities,
+      surfaceBaseRotation,
+    } = lobe.userData;
+    const spinAngle = motionTime * 7.2 + index * 0.52;
+    const positionAttribute = points.geometry.getAttribute('position');
+
+    for (let particleIndex = 0; particleIndex < positionAttribute.count; particleIndex += 1) {
+      const offset = particleIndex * 3;
+      const split = Math.sign(basePositions[offset] || 1) * fracture * 0.1;
+      positionAttribute.array[offset] = basePositions[offset] + drift[offset] * fracture * 1.7 + split;
+      positionAttribute.array[offset + 1] = basePositions[offset + 1] + drift[offset + 1] * fracture * 1.7;
+      positionAttribute.array[offset + 2] = basePositions[offset + 2] + drift[offset + 2] * fracture * 1.7;
+    }
+    positionAttribute.needsUpdate = true;
+
+    shell.rotation.set(
+      surfaceBaseRotation.x + state.pathPosition * 0.018 * (index % 2 ? -1 : 1),
+      surfaceBaseRotation.y + spinAngle,
+      surfaceBaseRotation.z + state.pathPosition * 0.012 * (index % 2 ? 1 : -1),
+    );
+    points.rotation.copy(shell.rotation);
+    atmosphere.rotation.copy(shell.rotation);
+    corona.rotation.set(
+      shell.rotation.x * 0.72,
+      surfaceBaseRotation.y + spinAngle * 0.92,
+      shell.rotation.z * 0.66,
+    );
+    lobe.scale.set(
+      1 - compression * 0.2 + flash * 0.06,
+      1 + compression * 0.08,
+      1 + compression * 0.08,
+    );
+    shell.material.uniforms.uReveal.value = state.reveal;
+    shell.material.uniforms.uImpact.value = flash;
+    shell.material.uniforms.uScar.value = scar;
+    atmosphere.material.uniforms.uReveal.value = state.reveal;
+    atmosphere.material.uniforms.uImpact.value = flash;
+    points.material.color.copy(emberTint).lerp(impactTint, flash * 0.68);
+    points.material.opacity = state.reveal * (0.08 + flash * 0.38 + scar * 0.08);
+    corona.material.opacity = state.reveal * (0.2 + compression * 0.08 + flash * 0.24);
+    core.material.opacity = state.reveal * (flash * 0.98 + scar * 0.045);
+    core.scale.setScalar(0.2 + flash * 0.46 + scar * 0.03);
+
+    const splashPositionAttribute = splash.geometry.getAttribute('position');
+    const splashProgress = impactAge < 0 ? 0 : THREE.MathUtils.clamp(impactAge / 0.4, 0, 1);
+    for (let particleIndex = 0; particleIndex < splashPositionAttribute.count; particleIndex += 1) {
+      const offset = particleIndex * 3;
+      const baseX = splashBasePositions[offset];
+      const baseY = splashBasePositions[offset + 1];
+      const baseZ = splashBasePositions[offset + 2];
+      const baseRadius = Math.max(0.001, Math.hypot(baseX, baseY, baseZ));
+      const sweepDirection = particleIndex % 2 === 0 ? 1 : -1;
+      const surfaceSpin = Math.max(0, impactAge) * (3.35 / 6) * 7.2;
+      const sweepAngle = surfaceSpin
+        + splashProgress * (0.38 + (particleIndex % 7) * 0.045) * sweepDirection;
+      const cosSweep = Math.cos(sweepAngle);
+      const sinSweep = Math.sin(sweepAngle);
+      const sweptX = baseX * cosSweep - baseZ * sinSweep;
+      const sweptZ = baseX * sinSweep + baseZ * cosSweep;
+      const surfaceScale = 0.64 / baseRadius;
+      const tangentAmount = Math.sin(splashProgress * Math.PI) * 0.16;
+      splashPositionAttribute.array[offset] = sweptX * surfaceScale + splashVelocities[offset] * tangentAmount;
+      splashPositionAttribute.array[offset + 1] = baseY * surfaceScale
+        + splashVelocities[offset + 1] * tangentAmount;
+      splashPositionAttribute.array[offset + 2] = sweptZ * surfaceScale + splashVelocities[offset + 2] * tangentAmount;
+    }
+    splashPositionAttribute.needsUpdate = true;
+    const splashRise = smoothstep(THREE.MathUtils.clamp(impactAge / 0.055, 0, 1));
+    const splashEnvelope = impactAge < 0
+      ? 0
+      : state.reveal * splashRise * Math.exp(-impactAge * 1.55);
+    splash.material.opacity = splashEnvelope * 2.05;
+    splash.material.size = 0.15 + flash * 0.08;
+    burst.material.opacity = splashEnvelope * 0.9;
+    burst.scale.setScalar(0.28 + splashEnvelope * 0.78);
+  });
+}
+
+function quaternionAlong(from, to) {
+  const direction = new THREE.Vector3().subVectors(to, from).normalize();
+  return new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(0, 0, 1), direction);
+}
+
+function updateSceneThreeWave(state) {
+  if (!state.active) {
+    wave.group.scale.setScalar(1);
+    wave.group.userData.core.renderOrder = 0;
+    wave.group.userData.core.material.depthTest = true;
+    return;
+  }
+
+  const startPosition = wave.group.position.clone();
+  const startQuaternion = wave.group.quaternion.clone();
+  if (state.pathPosition <= 0) {
+    wave.group.scale.setScalar(1);
+    return;
+  }
+
+  const segmentIndex = Math.min(5, Math.floor(Math.min(state.pathPosition, 5.999999)));
+  const segmentProgress = state.pathPosition >= 6 ? 1 : state.pathPosition - segmentIndex;
+  const easedProgress = smoothstep(segmentProgress);
+  const from = segmentIndex === 0 ? startPosition : boundaryField.positions[segmentIndex - 1];
+  const to = boundaryField.positions[segmentIndex];
+  const fromQuaternion = segmentIndex === 0
+    ? startQuaternion
+    : quaternionAlong(
+      segmentIndex === 1 ? startPosition : boundaryField.positions[segmentIndex - 2],
+      boundaryField.positions[segmentIndex - 1],
+    );
+  const toQuaternion = quaternionAlong(from, to);
+
+  wave.group.position.copy(from).lerp(to, easedProgress);
+  wave.group.quaternion.copy(fromQuaternion).slerp(toQuaternion, easedProgress);
+  const travellingScale = THREE.MathUtils.lerp(
+    1,
+    0.44,
+    smoothstep(THREE.MathUtils.clamp(state.pathPosition / 0.9, 0, 1)),
+  );
+  wave.group.scale.setScalar(THREE.MathUtils.lerp(travellingScale, 0.2, state.freeze));
+  wave.group.userData.particles.material.opacity *= state.rippleStrength;
+  wave.group.userData.rings.children.forEach((ring) => {
+    ring.material.opacity *= state.rippleStrength;
+  });
+  wave.group.userData.core.scale.setScalar(THREE.MathUtils.lerp(
+    wave.group.userData.core.scale.x,
+    0.82,
+    state.freeze,
+  ));
+  wave.group.userData.core.renderOrder = 20;
+  wave.group.userData.core.material.color.setHex(0xffffff);
+  wave.group.userData.core.material.depthTest = false;
+  wave.group.userData.core.material.opacity = state.coreStrength;
+}
+
+function updateWaveEquation(time) {
+  const state = getWaveState(time);
+  const showEquation = state.active && time <= SCENE_ONE_END;
+  waveEquationEl.classList.toggle('is-visible', showEquation);
+  if (!showEquation) return;
+
+  const values = getDopplerValues(state.progress);
+  waveF0El.textContent = Math.round(values.sourceFrequency);
+  waveVelocityEl.textContent = values.velocityRatio.toFixed(2);
+  waveObservedFrequencyEl.textContent = Math.round(values.observedFrequency);
+
+  const projected = wave.group.getWorldPosition(new THREE.Vector3()).project(camera);
+  const left = THREE.MathUtils.clamp((projected.x * 0.5 + 0.5) * 100 + 7, 21, 79);
+  const top = THREE.MathUtils.clamp((-projected.y * 0.5 + 0.5) * 100 - 5, 27, 69);
+  const fadeIn = smoothstep(Math.min(1, state.progress / 0.08));
+  const fadeOut = smoothstep(Math.min(1, (1 - state.progress) / 0.1));
+
+  waveEquationEl.style.left = `${left}%`;
+  waveEquationEl.style.top = `${top}%`;
+  waveEquationEl.style.opacity = `${fadeIn * fadeOut}`;
+  waveEquationPathEl.style.strokeDashoffset = `${96 - state.progress * 192}`;
 }
 
 function updateScene(time, motionTime = time) {
   const frameTime = Math.min(SCENE_DURATION, Math.floor(time * FPS) / FPS);
+  const recombination = getRecombinationState(frameTime);
+  const sceneThree = getSceneThreeState(frameTime);
+  const storyTime = frameTime >= SCENE_ONE_END ? recombination.waveTime : frameTime;
+  const sceneThreeTransition = THREE.MathUtils.smoothstep(frameTime, SCENE_TWO_END, SCENE_TWO_END + 0.76);
+  const oldFieldVisibility = 1 - sceneThreeTransition;
+  const coolingVisibility = (1 - recombination.progress * 0.46) * oldFieldVisibility;
+  const labelFade = 1 - THREE.MathUtils.smoothstep(recombination.progress, 0, 0.12);
   const spinTime = motionTime * 2;
   const frame = Math.min(TOTAL_FRAMES - 1, Math.floor(frameTime * FPS));
   if (frame !== lastFrame) {
     lastFrame = frame;
     subtitleEl.textContent = getSubtitleAtTime(frameTime);
-    captionEl.textContent = frameTime >= 4.3
-      ? '纵波位移  ξ(x,t) = A sin(kx - ωt)'
-      : '原初光子 · 重子 · 声压峰';
-    timecodeEl.textContent = `${formatTime(frameTime)} / 00:06.40`;
+    captionEl.textContent = sceneThree.active
+      ? '碰撞冲量  J = ∫F dt = Δp · 声痕冻结'
+      : frameTime > SCENE_ONE_END
+        ? '声学俘获 · x(t) = xw + (x₀ − xw)e^(−λt)'
+      : frameTime >= 4.3
+        ? '纵波位移  ξ(x,t) = A sin(kx - ωt)'
+        : '原初光子 · 重子 · 声压峰';
+    const showSceneThreeTitle = frameTime >= SCENE_TWO_END + 0.25;
+    const showSceneTwoTitle = frameTime >= SCENE_ONE_END + 0.3;
+    eyebrowEl.textContent = showSceneThreeTitle
+      ? 'SCENE 03 / SIX DIRECTIONS'
+      : showSceneTwoTitle
+        ? 'SCENE 02 / RECOMBINATION'
+        : 'SCENE 01 / PRIMORDIAL PLASMA';
+    titleSubEl.textContent = showSceneThreeTitle
+      ? '一声，撞向六方。'
+      : showSceneTwoTitle
+        ? '光与物质，从此分离。'
+        : '很久以前，声音还没有名字。';
+    timecodeEl.textContent = `${formatTime(frameTime)} / 00:16.17`;
   }
   const focus = getSelectionAtTime(frameTime);
   const focused = new Set(focus.nodes);
   const labelReveal = getLabelRevealAtTime(frameTime, focus.nodes, nodes.length, minorBodies.length);
   const revealedMain = new Set(labelReveal.main);
-  celestialField.rotation.x = Math.sin(frameTime * 0.2) * 0.018;
-  celestialField.rotation.y = frameTime * 0.035;
-  celestialField.rotation.z = Math.sin(frameTime * 0.17) * 0.012;
+  celestialField.rotation.x = Math.sin(storyTime * 0.2) * 0.018;
+  celestialField.rotation.y = storyTime * 0.035;
+  celestialField.rotation.z = Math.sin(storyTime * 0.17) * 0.012;
+  const smallStarReveal = THREE.MathUtils.smoothstep(frameTime, 0.85, 1.25);
   stars.children.forEach((starLayer) => {
     starLayer.material.uniforms.uTime.value = motionTime;
+    starLayer.material.uniforms.uReveal.value = smallStarReveal;
+    starLayer.material.uniforms.uAbsorbProgress.value = recombination.absorption;
   });
+  const cmbSceneThreeFade = THREE.MathUtils.lerp(1, 0.18, sceneThreeTransition);
+  cmbResidual.visible = recombination.progress > 0;
+  cmbResidual.material.opacity = THREE.MathUtils.smoothstep(recombination.progress, 0.04, 0.34) * 0.28 * cmbSceneThreeFade;
+  const epochIn = THREE.MathUtils.smoothstep(recombination.progress, 0.05, 0.18);
+  const epochOut = 1 - THREE.MathUtils.smoothstep(recombination.progress, 0.84, 0.97);
+  epochMarkerEl.style.opacity = `${epochIn * epochOut}`;
+  epochMarkerEl.style.transform = `translateY(${(1 - epochIn) * 8}px)`;
+  baryonVelocityEl.textContent = recombination.baryonVelocity.toFixed(3);
+  impactMarkerEl.style.opacity = `${sceneThree.active ? sceneThree.reveal * (1 - sceneThree.freeze * 0.35) : 0}`;
+  impactMarkerEl.style.transform = `translateY(${(1 - sceneThree.reveal) * 8}px)`;
+  impactCountEl.textContent = String(sceneThree.completedImpacts).padStart(2, '0');
   nodes.forEach(({ group, definition }, index) => {
     const selected = focused.has(index);
-    const pulse = selected ? 1 : 0;
-    const targetScale = selected ? 1.18 : 0.9;
+    const pulse = selected ? 1 - recombination.progress * 0.82 : 0;
+    const baseScale = selected ? 1.18 : 0.9;
+    const targetScale = THREE.MathUtils.lerp(baseScale, 0.78, recombination.progress);
     group.scale.lerp(new THREE.Vector3(targetScale, targetScale, targetScale), 0.08);
-    group.position.y = definition.position[1] + Math.sin(time * 0.32 + definition.phase) * 0.05;
+    group.position.x = definition.position[0] * (1 + recombination.progress * 0.08);
+    group.position.y = definition.position[1] * (1 + recombination.progress * 0.06)
+      + Math.sin(storyTime * 0.32 + definition.phase) * 0.05 * recombination.baryonVelocity;
+    group.position.z = definition.position[2] - recombination.progress * 0.45;
     if (group.userData.isChladni) {
       group.rotation.x = 0.58 + Math.sin(spinTime * 0.52 + definition.phase) * 0.24;
       group.rotation.y = definition.phase + spinTime * definition.spin * 1.15;
       group.rotation.z = definition.phase * 0.18 + spinTime * definition.spin * 0.62;
       const isCosmicWeb = definition.boundary === 'volume';
-      group.userData.pattern.material.opacity = isCosmicWeb ? 0.34 + pulse * 0.28 : 0.56 + pulse * 0.38;
-      group.userData.glow.material.opacity = isCosmicWeb ? 0.02 + pulse * 0.055 : 0.08 + pulse * 0.2;
-      if (group.userData.network) group.userData.network.material.opacity = isCosmicWeb ? 0.16 + pulse * 0.16 : 0.1 + pulse * 0.2;
-      group.userData.outline.material.opacity = isCosmicWeb ? 0.08 + pulse * 0.16 : 0.07 + pulse * 0.2;
-      if (group.userData.vertexPoints) group.userData.vertexPoints.material.opacity = 0.58 + pulse * 0.36;
+      group.userData.pattern.material.opacity = (isCosmicWeb ? 0.5 + pulse * 0.38 : 0.56 + pulse * 0.38) * coolingVisibility;
+      group.userData.glow.material.opacity = (isCosmicWeb ? 0.01 + pulse * 0.035 : 0.08 + pulse * 0.2) * coolingVisibility;
+      if (group.userData.network) group.userData.network.material.opacity = (isCosmicWeb ? 0.16 + pulse * 0.16 : 0.1 + pulse * 0.2) * coolingVisibility;
+      group.userData.outline.material.opacity = (isCosmicWeb ? 0.08 + pulse * 0.16 : 0.07 + pulse * 0.2) * coolingVisibility;
+      if (group.userData.vertexPoints) group.userData.vertexPoints.material.opacity = (0.58 + pulse * 0.36) * coolingVisibility;
     } else {
       group.rotation.y = definition.phase + spinTime * definition.spin;
       group.rotation.x = Math.sin(spinTime * 0.6 + definition.phase) * 0.14;
-      group.userData.halo.material.opacity = 0.12 + pulse * 0.24 + Math.sin(motionTime * 1.8 + definition.phase) * 0.02;
-      group.userData.mantle.material.opacity = 0.28 + pulse * 0.3;
-      group.userData.core.material.opacity = 0.6 + pulse * 0.32;
-      group.userData.particles.material.opacity = 0.44 + pulse * 0.4;
-      group.userData.ring.material.opacity = 0.12 + pulse * 0.26;
+      group.userData.halo.material.opacity = (0.07 + pulse * 0.16 + Math.sin(motionTime * 1.8 + definition.phase) * 0.015) * coolingVisibility;
+      group.userData.mantle.material.opacity = (0.22 + pulse * 0.24) * coolingVisibility;
+      group.userData.core.material.opacity = (0.6 + pulse * 0.32) * coolingVisibility;
+      group.userData.particles.material.opacity = (0.44 + pulse * 0.4) * coolingVisibility;
+      group.userData.ring.material.opacity = (0.12 + pulse * 0.26) * coolingVisibility;
     }
     const showLabel = revealedMain.has(index);
     labels[index].classList.toggle('is-focus', selected && showLabel);
-    labels[index].style.opacity = showLabel ? (selected ? '1' : '0.58') : '0';
+    labels[index].style.opacity = showLabel ? `${(selected ? 1 : 0.58) * labelFade}` : '0';
   });
 
-  minorBodies.forEach(({ group }, index) => {
-    const pulse = 0.82 + Math.sin(frameTime * 1.35 + group.userData.phase) * 0.18;
-    group.scale.setScalar(pulse);
+  minorBodies.forEach(({ group, definition }, index) => {
+    const pulse = 0.82 + Math.sin(storyTime * 1.35 + group.userData.phase) * 0.18 * recombination.baryonVelocity;
+    group.scale.setScalar(pulse * THREE.MathUtils.lerp(1, 0.72, recombination.progress));
+    group.position.x = definition.position[0] * (1 + recombination.progress * 0.14);
+    group.position.y = definition.position[1] * (1 + recombination.progress * 0.11);
+    group.position.z = definition.position[2] - recombination.progress * 0.55;
     group.userData.companions.rotation.z = spinTime * (0.12 + (index % 3) * 0.035);
     group.userData.companions.rotation.y = spinTime * 0.08 + group.userData.phase;
-    group.userData.core.material.opacity = 0.68 + pulse * 0.16;
-    group.userData.halo.material.opacity = 0.08 + pulse * 0.09;
-    minorLabels[index].style.opacity = index === labelReveal.minor ? `${0.46 + pulse * 0.2}` : '0';
+    group.userData.core.material.opacity = (0.68 + pulse * 0.16) * coolingVisibility;
+    group.userData.halo.material.opacity = (0.04 + pulse * 0.07) * coolingVisibility;
+    minorLabels[index].style.opacity = index === labelReveal.minor ? `${(0.46 + pulse * 0.2) * labelFade}` : '0';
   });
 
   PYRAMID_RAYS.forEach(([a, b], edgeIndex) => {
@@ -781,16 +1396,23 @@ function updateScene(time, motionTime = time) {
     position.setXYZ(0, from.x, from.y, from.z);
     position.setXYZ(1, to.x, to.y, to.z);
     position.needsUpdate = true;
-    line.material.opacity = THREE.MathUtils.smoothstep(frameTime, 0.12, 0.72) * 0.46;
+    line.material.opacity = THREE.MathUtils.smoothstep(frameTime, 0.12, 0.72) * 0.46 * labelFade;
     line.computeLineDistances();
   });
 
+  updateBoundaryLobes(sceneThree, motionTime);
   updateWave(frameTime);
+  updateSceneThreeWave(sceneThree);
+  stars.children.forEach((starLayer) => {
+    starLayer.material.uniforms.uAbsorbTarget.value.copy(wave.group.position);
+  });
   const cameraPush = getCameraPushAtTime(frameTime);
-  camera.position.x = Math.sin(frameTime * 0.12) * 0.28 + cameraPush * 0.035;
-  camera.position.y = 0.12 + Math.cos(frameTime * 0.17) * 0.1;
-  camera.position.z = 12.5 - cameraPush * 1.1;
+  camera.position.x = Math.sin(storyTime * 0.12) * 0.28 + cameraPush * 0.035;
+  camera.position.y = 0.12 + Math.cos(storyTime * 0.17) * 0.1;
+  camera.position.z = 12.5 - cameraPush * 1.1 + recombination.progress * 1.7;
   camera.lookAt(0, 0, 0);
+  camera.updateMatrixWorld();
+  updateWaveEquation(frameTime);
   updateLabels();
 }
 
