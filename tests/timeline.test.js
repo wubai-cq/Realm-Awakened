@@ -3,6 +3,8 @@ import { describe, expect, it } from 'vitest';
 import {
   PYRAMID_RAYS,
   SCENE_ONE_END,
+  SCENE_THREE_IMPACT_DELAY,
+  SCENE_THREE_IMPACT_TRAVEL,
   SCENE_TWO_END,
   SILENCE_START,
   WAVE_END,
@@ -79,44 +81,41 @@ describe('plasma focus and wave motion', () => {
     expect(getRecombinationState(SCENE_DURATION).silenceBrightness).toBe(1);
   });
 
-  it('moves one wave through six sequential boundary impacts', () => {
+  it('moves one wave into a single spherical 六合 core', () => {
     const firstFrame = getSceneThreeState(SCENE_TWO_END);
     const middle = getSceneThreeState(13.2);
     const lastFrame = getSceneThreeState(SCENE_DURATION);
 
     expect(firstFrame).toMatchObject({ active: true, progress: 0, reveal: 0, pathPosition: 0 });
-    expect(middle.pathPosition).toBeGreaterThan(0);
-    expect(middle.pathPosition).toBeLessThan(6);
-    expect(lastFrame).toMatchObject({ active: true, progress: 1, pathPosition: 6, freeze: 1 });
+    expect(middle.pathPosition).toBe(1);
+    expect(lastFrame).toMatchObject({ active: true, progress: 1, pathPosition: 1, freeze: 1 });
   });
 
-  it('counts each boundary only after the travelling wave reaches it', () => {
+  it('counts the impact only after the travelling wave reaches the core', () => {
     const sceneStart = getSceneThreeState(SCENE_TWO_END);
-    const beforeFirstImpact = getSceneThreeState(SCENE_TWO_END + 0.38 + (3.35 / 6) * 0.99);
-    const firstImpact = getSceneThreeState(SCENE_TWO_END + 0.38 + (3.35 / 6));
-    const finalImpact = getSceneThreeState(SCENE_TWO_END + 0.38 + 3.35);
+    const beforeImpact = getSceneThreeState(SCENE_TWO_END + SCENE_THREE_IMPACT_DELAY + SCENE_THREE_IMPACT_TRAVEL * 0.99);
+    const impact = getSceneThreeState(SCENE_TWO_END + SCENE_THREE_IMPACT_DELAY + SCENE_THREE_IMPACT_TRAVEL);
 
     expect(sceneStart.completedImpacts).toBe(0);
-    expect(beforeFirstImpact.completedImpacts).toBe(0);
-    expect(firstImpact.completedImpacts).toBe(1);
-    expect(finalImpact.completedImpacts).toBe(6);
+    expect(beforeImpact.completedImpacts).toBe(0);
+    expect(impact.completedImpacts).toBe(1);
   });
 
-  it('removes the ripple only after the sixth impact while preserving the frozen core state', () => {
-    const sixthImpactTime = SCENE_TWO_END + 0.38 + 3.35;
-    const atSixthImpact = getSceneThreeState(sixthImpactTime);
+  it('lets the surface ripple fade into the frozen core state', () => {
+    const impactTime = SCENE_TWO_END + SCENE_THREE_IMPACT_DELAY + SCENE_THREE_IMPACT_TRAVEL;
+    const atImpact = getSceneThreeState(impactTime);
     const duringFreeze = getSceneThreeState(SCENE_TWO_END + 4.2);
     const frozen = getSceneThreeState(SCENE_DURATION);
 
-    expect(atSixthImpact.completedImpacts).toBe(6);
-    expect(atSixthImpact.impactClock).toBeCloseTo(6, 8);
-    expect(atSixthImpact.rippleStrength).toBe(1);
+    expect(atImpact.completedImpacts).toBe(1);
+    expect(atImpact.impactClock).toBeCloseTo(1, 8);
+    expect(atImpact.rippleStrength).toBe(1);
     expect(duringFreeze.rippleStrength).toBeGreaterThan(0);
     expect(duringFreeze.rippleStrength).toBeLessThan(1);
     expect(frozen.rippleStrength).toBe(0);
     expect(frozen.coreStrength).toBe(1);
-    expect(frozen.pathPosition).toBe(6);
-    expect(frozen.impactClock).toBeGreaterThan(6);
+    expect(frozen.pathPosition).toBe(1);
+    expect(frozen.impactClock).toBeGreaterThan(1);
   });
 
   it('reveals a sparse label subset that jumps on the next beat', () => {

@@ -7,6 +7,11 @@ export const WAVE_START = 4.3;
 export const WAVE_END = SCENE_ONE_END;
 export const SILENCE_START = 9.94;
 export const PYRAMID_RAYS = [[0, 1], [0, 2], [0, 3]];
+// Scene three needs a readable approach before the impact. The voice begins
+// separated from the core, then crosses the gap quickly enough to feel like a
+// collision instead of a state change.
+export const SCENE_THREE_IMPACT_DELAY = 0.62;
+export const SCENE_THREE_IMPACT_TRAVEL = 0.84;
 
 const FOCUS_SCHEDULE = [
   { start: 0, end: 1.35, nodes: [7, 0, 2, 5] },
@@ -90,8 +95,10 @@ export function getSceneThreeState(time) {
   const elapsed = Math.max(0, time - SCENE_TWO_END);
   const duration = SCENE_DURATION - SCENE_TWO_END;
   const progress = Math.min(1, elapsed / duration);
-  const impactClock = Math.max(0, (elapsed - 0.38) / (3.35 / 6));
-  const pathPosition = Math.min(6, impactClock);
+  const impactClock = Math.max(0, (elapsed - SCENE_THREE_IMPACT_DELAY) / SCENE_THREE_IMPACT_TRAVEL);
+  const pathPosition = Math.min(1, impactClock);
+  const approachProgress = pathPosition;
+  const surfaceProgress = Math.max(0, impactClock - 1);
   const freeze = smoothRange(time, SCENE_TWO_END + 3.8, SCENE_TWO_END + 4.65);
 
   return {
@@ -99,10 +106,12 @@ export function getSceneThreeState(time) {
     progress,
     reveal: smoothRange(time, SCENE_TWO_END, SCENE_TWO_END + 0.45),
     pathPosition,
+    approachProgress,
+    surfaceProgress,
     impactClock,
-    completedImpacts: Math.min(6, Math.floor(pathPosition + 1e-9)),
-    impactIndex: Math.min(5, Math.floor(pathPosition)),
-    segmentProgress: pathPosition >= 6 ? 1 : pathPosition % 1,
+    completedImpacts: Math.floor(pathPosition + 1e-9),
+    impactIndex: 0,
+    segmentProgress: pathPosition >= 1 ? 1 : pathPosition,
     freeze,
     rippleStrength: 1 - freeze,
     coreStrength: 1,

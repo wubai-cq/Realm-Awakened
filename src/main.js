@@ -8,6 +8,7 @@ import {
   FPS,
   SCENE_ONE_END,
   SCENE_TWO_END,
+  SCENE_THREE_IMPACT_TRAVEL,
   SCENE_DURATION,
   TOTAL_FRAMES,
   PYRAMID_RAYS,
@@ -26,7 +27,9 @@ const HOT_COLORS = [0xffffdc, 0xffc735, 0xff7418, 0xff2f0c, 0x8d1207];
 const WAVE_COLOR = 0xb9e6ff;
 const WAVE_BASE_COLOR = new THREE.Color(WAVE_COLOR);
 const WAVE_QUIET_COLOR = new THREE.Color(0xffffff);
+const FROZEN_WAVE_COLOR = new THREE.Color(0xc4f3d5);
 const waveDisplayColor = new THREE.Color();
+const BOUNDARY_SPIN_RATE = 4.2;
 
 const audio = document.querySelector('#narration');
 const canvas = document.querySelector('#scene');
@@ -105,7 +108,7 @@ minorBodies.forEach((body) => celestialField.add(body.group));
 const pyramidRays = PYRAMID_RAYS.map(() => createPyramidRay());
 pyramidRays.forEach((line) => celestialField.add(line));
 const boundaryField = createBoundaryLobes();
-celestialField.add(boundaryField.group);
+scene.add(boundaryField.group);
 const wave = createWavePacket();
 celestialField.add(wave.group);
 
@@ -325,12 +328,7 @@ function createCmbResidualField() {
 
 function createBoundaryLobes() {
   const positions = [
-    [2.55, 0.06, 0.18],
-    [1.25, 1.88, -0.34],
-    [-1.25, 1.88, 0.32],
-    [-2.55, -0.06, -0.2],
-    [-1.2, -1.88, 0.38],
-    [1.25, -1.88, -0.4],
+    [-2.2, 0, 0],
   ];
   const group = new THREE.Group();
   const ember = new THREE.Color(0xff3b0d);
@@ -445,6 +443,7 @@ function createBoundaryLobes() {
         uniforms: {
           uReveal: { value: 0 },
           uImpact: { value: 0 },
+          uHeat: { value: 0 },
           uPhase: { value: lobeIndex * 0.83 },
         },
         vertexShader: `
@@ -462,6 +461,7 @@ function createBoundaryLobes() {
         fragmentShader: `
           uniform float uReveal;
           uniform float uImpact;
+          uniform float uHeat;
           uniform float uPhase;
           varying vec3 vObjectPosition;
           varying vec3 vViewNormal;
@@ -471,8 +471,10 @@ function createBoundaryLobes() {
             float viewDot = max(dot(normalize(vViewNormal), normalize(vViewDirection)), 0.0);
             float fresnel = pow(1.0 - viewDot, 2.15);
             float flow = 0.5 + 0.5 * sin(p.x * 11.0 + sin(p.y * 8.0 + uPhase) * 1.7 + p.z * 6.0);
-            float density = (0.045 + fresnel * 0.43) * (0.72 + flow * 0.28);
-            vec3 color = mix(vec3(0.72, 0.015, 0.002), vec3(1.0, 0.16, 0.015), fresnel);
+            float heat = clamp(uHeat + uImpact * 0.22, 0.0, 1.0);
+            float density = (0.045 + fresnel * 0.43) * (0.72 + flow * 0.28) * (1.0 + heat * 0.58);
+            vec3 color = mix(vec3(0.72, 0.015, 0.002), vec3(1.0, 0.34, 0.018), clamp(fresnel + heat * 0.58, 0.0, 1.0));
+            color += vec3(1.0, 0.18, 0.008) * heat * (0.16 + fresnel * 0.54);
             gl_FragColor = vec4(color, density * uReveal * (1.0 + uImpact * 0.72));
           }
         `,
@@ -521,9 +523,15 @@ function createBoundaryLobes() {
     const previous = lobeIndex === 0
       ? new THREE.Vector3(0, 0, 0)
       : new THREE.Vector3(...positions[lobeIndex - 1]);
-    const contactDirection = previous.sub(center).normalize();
-    const tangentA = new THREE.Vector3(0, 0, 1).cross(contactDirection).normalize();
-    if (tangentA.lengthSq() < 0.01) tangentA.set(0, 1, 0);
+    const contactDirection = previous.sub(center);
+    // Face the incoming wave toward the visible hemisphere so the horizontal
+    // six-shaped splash remains readable when the camera settles on impact.
+    if (contactDirection.lengthSq() < 0.001) contactDirection.set(1, 0, 0);
+    else contactDirection.normalize();
+    const tangentA = new THREE.Vector3(0, 1, 0)
+      .addScaledVector(contactDirection, -contactDirection.y)
+      .normalize();
+    if (tangentA.lengthSq() < 0.01) tangentA.set(1, 0, 0);
     const tangentB = contactDirection.clone().cross(tangentA).normalize();
 
     const core = new THREE.Sprite(new THREE.SpriteMaterial({
@@ -535,7 +543,7 @@ function createBoundaryLobes() {
       blending: THREE.AdditiveBlending,
     }));
     core.scale.setScalar(0.2);
-    core.position.copy(contactDirection).multiplyScalar(0.62);
+    core.position.copy(contactDirection).multiplyScalar(0.642);
     const burst = new THREE.Sprite(new THREE.SpriteMaterial({
       map: texture,
       color: 0xfff0c4,
@@ -548,7 +556,68 @@ function createBoundaryLobes() {
     burst.position.copy(core.position);
     burst.scale.setScalar(0.3);
 
-    const splashCount = 900;
+    const rippleRingCount = 3;
+    const rippleSamples = 96;
+    const rippleCount = rippleRingCount * rippleSamples;
+    const ripplePositions = new Float32Array(rippleCount * 3);
+    const rippleSizes = new Float32Array(rippleCount);
+    const rippleAlpha = new Float32Array(rippleCount);
+    const ripplePhase = new Float32Array(rippleCount);
+    for (let i = 0; i < rippleCount; i += 1) {
+      const ringIndex = Math.floor(i / rippleSamples);
+      const sampleIndex = i % rippleSamples;
+      const phase = (sampleIndex / rippleSamples) * Math.PI * 2 + ringIndex * 0.37;
+      const offset = i * 3;
+      ripplePositions.set(contactDirection.clone().multiplyScalar(0.635).toArray(), offset);
+      rippleSizes[i] = 0.034 + ((i * 17 + lobeIndex * 7) % 19) / 19 * 0.026;
+      ripplePhase[i] = phase;
+    }
+    const rippleGeometry = new THREE.BufferGeometry();
+    rippleGeometry.setAttribute('position', new THREE.BufferAttribute(ripplePositions, 3));
+    rippleGeometry.setAttribute('aSize', new THREE.BufferAttribute(rippleSizes, 1));
+    rippleGeometry.setAttribute('aAlpha', new THREE.BufferAttribute(rippleAlpha, 1).setUsage(THREE.DynamicDrawUsage));
+    const ripple = new THREE.Points(rippleGeometry, new THREE.ShaderMaterial({
+      uniforms: {
+        uColor: { value: new THREE.Color(0xffd7a0) },
+        uOpacity: { value: 0 },
+        uPointScale: { value: 180 },
+      },
+      vertexShader: `
+        attribute float aSize;
+        attribute float aAlpha;
+        uniform float uPointScale;
+        varying float vAlpha;
+        void main() {
+          vAlpha = aAlpha;
+          vec4 viewPosition = modelViewMatrix * vec4(position, 1.0);
+          gl_PointSize = max(1.0, aSize * uPointScale / max(1.0, -viewPosition.z));
+          gl_Position = projectionMatrix * viewPosition;
+        }
+      `,
+      fragmentShader: `
+        uniform vec3 uColor;
+        uniform float uOpacity;
+        varying float vAlpha;
+        void main() {
+          float radius = length(gl_PointCoord - vec2(0.5));
+          float alpha = exp(-radius * radius * 24.0) * vAlpha * uOpacity;
+          if (alpha < 0.01) discard;
+          gl_FragColor = vec4(uColor, alpha);
+        }
+      `,
+      transparent: true,
+      depthTest: true,
+      depthWrite: false,
+      blending: THREE.AdditiveBlending,
+    }));
+    ripple.renderOrder = 11;
+    ripple.frustumCulled = false;
+
+    // A dense field of small points reads as granular ejecta rather than one
+    // continuous flame ribbon.
+    // Increase the ejecta field by half while keeping the same spatial
+    // distribution, so the collision reads denser without changing its form.
+    const splashCount = 3525;
     const splashPositions = new Float32Array(splashCount * 3);
     const splashVelocities = new Float32Array(splashCount * 3);
     const splashSurfaceDirections = new Float32Array(splashCount * 3);
@@ -563,7 +632,7 @@ function createBoundaryLobes() {
     for (let i = 0; i < splashCount; i += 1) {
       const angle = i * 2.39996323 + lobeIndex * 0.43;
       const typeSeed = ((i * 47 + lobeIndex * 19) % 101) / 101;
-      const type = typeSeed < 0.3 ? 0 : typeSeed < 0.88 ? 1 : 2;
+      const type = typeSeed < 0.38 ? 0 : typeSeed < 0.88 ? 1 : 2;
       const speedSeed = ((i * 29 + lobeIndex * 11) % 97) / 97;
       const tangentSeed = ((i * 71 + lobeIndex * 23) % 103) / 103;
       const radialSpeed = type === 0
@@ -595,15 +664,16 @@ function createBoundaryLobes() {
       const splashColor = new THREE.Color(0xff2608).lerp(new THREE.Color(0xfff0b8), hotness ** 3.2);
       splashColors.set(splashColor.toArray(), offset);
       const sizeSeed = ((i * 19 + lobeIndex * 5) % 43) / 43;
-      splashSizes[i] = (type === 1 ? 0.065 : 0.048) + sizeSeed ** 2 * (type === 2 ? 0.15 : 0.19);
+      splashSizes[i] = (type === 1 ? 0.022 : 0.018)
+        + sizeSeed ** 3 * (type === 2 ? 0.075 : 0.095);
       splashEnergy[i] = 0.35 + ((i * 11 + lobeIndex * 17) % 37) / 37 * 0.65;
       splashTypes[i] = type;
-      splashDelays[i] = ((i * 41 + lobeIndex * 17) % 97) / 97 * (type === 0 ? 0.24 : 0.14);
+      splashDelays[i] = ((i * 41 + lobeIndex * 17) % 97) / 97 * (type === 0 ? 0.38 : 0.22);
       splashLifetimes[i] = type === 0
-        ? 1.05 + speedSeed * 0.9
+        ? 2.7 + speedSeed * 0.7
         : type === 1
-          ? 0.72 + speedSeed * 0.82
-          : 0.46 + speedSeed * 0.52;
+          ? 3.2 + speedSeed * 0.8
+          : 0.7 + speedSeed * 0.5;
       splashSpinDrag[i] = type === 0
         ? 0.72 + speedSeed * 0.32
         : type === 1
@@ -644,21 +714,26 @@ function createBoundaryLobes() {
         void main() {
           float distanceToCenter = length(gl_PointCoord - vec2(0.5));
           float gaussian = exp(-distanceToCenter * distanceToCenter * 18.0);
-          float alpha = gaussian * vAlpha * uOpacity;
+          // A broad, low-opacity Gaussian fills the space between hot cores
+          // and gives the ejecta a soft suspended haze.
+          float haze = exp(-distanceToCenter * distanceToCenter * 4.2) * 0.18;
+          float alpha = (gaussian + haze) * vAlpha * uOpacity;
           if (alpha < 0.01) discard;
           gl_FragColor = vec4(vColor, alpha);
         }
       `,
       transparent: true,
-      depthTest: false,
+      depthTest: true,
       depthWrite: false,
       blending: THREE.AdditiveBlending,
     }));
     splash.renderOrder = 12;
     splash.frustumCulled = false;
 
+    const surfaceEffects = new THREE.Group();
+    surfaceEffects.add(core, burst, ripple, splash);
     const lobe = new THREE.Group();
-    lobe.add(atmosphere, corona, shell, points, core, burst, splash);
+    lobe.add(atmosphere, corona, shell, points, surfaceEffects);
     lobe.position.set(...position);
     lobe.userData = {
       shell,
@@ -667,6 +742,8 @@ function createBoundaryLobes() {
       corona,
       core,
       burst,
+      surfaceEffects,
+      ripple,
       splash,
       basePositions,
       drift,
@@ -677,6 +754,10 @@ function createBoundaryLobes() {
       splashDelays,
       splashLifetimes,
       splashSpinDrag,
+      contactDirection,
+      tangentA,
+      tangentB,
+      ripplePhase,
       surfaceBaseRotation: shell.rotation.clone(),
       impactSpinOrigin: 0,
       impactCaptured: false,
@@ -1120,11 +1201,42 @@ function createWavePacket() {
 function updateWave(time) {
   const state = getWaveState(time);
   const recombination = getRecombinationState(time);
-  wave.group.visible = state.active;
-  if (!state.active) return;
-  const waveTime = time >= SCENE_ONE_END ? recombination.waveTime : time;
-  const shellExpansion = 1 + recombination.progress * 1.7;
-  const waveMotion = time >= SCENE_ONE_END ? recombination.baryonVelocity : 1;
+  const inRecombinationScene = time > SCENE_ONE_END && time <= SCENE_TWO_END;
+  const inSceneThree = time > SCENE_TWO_END;
+
+  // Scene three owns the wave placement. Keeping this update out of the
+  // third-scene path prevents the old node-to-node animation from snapping it
+  // back to the right-hand start point every frame.
+  if (!state.active || inSceneThree) {
+    wave.group.visible = false;
+    return;
+  }
+
+  wave.group.visible = true;
+  if (inRecombinationScene) {
+    const anchor = wave.group.userData.recombinationAnchor;
+    if (anchor) wave.group.position.copy(anchor);
+    if (wave.group.userData.recombinationAnchorQuaternion) {
+      wave.group.quaternion.copy(wave.group.userData.recombinationAnchorQuaternion);
+    }
+
+    const silence = recombination.silenceBrightness;
+    waveDisplayColor.copy(WAVE_BASE_COLOR).lerp(WAVE_QUIET_COLOR, silence);
+    wave.group.userData.core.material.color.copy(waveDisplayColor);
+    wave.group.userData.core.material.opacity = THREE.MathUtils.lerp(0.78, 1, silence);
+    wave.group.userData.particles.material.opacity = THREE.MathUtils.lerp(0.92, 0.16, recombination.progress);
+    wave.group.userData.rings.children.forEach((ring) => {
+      const ringPhase = ring.userData.s * 19 - recombination.waveTime * 34;
+      const envelope = Math.exp(-ring.userData.s * ring.userData.s * 2.8);
+      ring.material.opacity = (0.1 + Math.max(0, Math.cos(ringPhase)) * 0.38 * envelope)
+        * (1 - silence);
+    });
+    return;
+  }
+
+  const waveTime = time;
+  const shellExpansion = 1;
+  const waveMotion = 1;
   waveDisplayColor.copy(WAVE_BASE_COLOR).lerp(WAVE_QUIET_COLOR, recombination.silenceBrightness);
   const selection = getSelectionAtTime(time).nodes;
   const edgePosition = Math.min(state.progress, 0.9) * selection.length;
@@ -1141,10 +1253,12 @@ function updateWave(time) {
   wave.group.position.copy(center).addScaledVector(up, Math.sin(waveTime * 19) * 0.045 * waveMotion);
   wave.group.quaternion.setFromUnitVectors(new THREE.Vector3(0, 0, 1), tangent);
   wave.userData = wave.group.userData;
+  wave.group.userData.recombinationAnchor = wave.group.position.clone();
+  wave.group.userData.recombinationAnchorQuaternion = wave.group.quaternion.clone();
   wave.group.userData.core.scale.setScalar(
-    state.radius * 1.65 * (1 + recombination.progress * 0.7) * (1 + recombination.silenceBrightness),
+    state.radius * 1.65,
   );
-  const coreOpacity = 0.9 * (1 - recombination.progress * 0.5);
+  const coreOpacity = 0.9;
   wave.group.userData.core.material.color.copy(waveDisplayColor);
   wave.group.userData.core.material.opacity = THREE.MathUtils.lerp(coreOpacity, 1, recombination.silenceBrightness);
   wave.group.userData.frozenCoreBoost.material.opacity = 0;
@@ -1205,6 +1319,7 @@ function updateBoundaryLobes(state, motionTime) {
       corona,
       core,
       burst,
+      surfaceEffects,
       splash,
       basePositions,
       drift,
@@ -1215,6 +1330,11 @@ function updateBoundaryLobes(state, motionTime) {
       splashDelays,
       splashLifetimes,
       splashSpinDrag,
+      ripple,
+      contactDirection,
+      tangentA,
+      tangentB,
+      ripplePhase,
       surfaceBaseRotation,
       impactSpinOrigin,
       impactCaptured,
@@ -1226,7 +1346,7 @@ function updateBoundaryLobes(state, motionTime) {
     const elapsedSinceImpact = lobe.userData.impactCaptured
       ? Math.max(0, motionTime - lobe.userData.impactSpinOrigin)
       : 0;
-    const spinAngle = motionTime * 7.2 + index * 0.52;
+    const verticalSpinAngle = motionTime * BOUNDARY_SPIN_RATE + index * 0.52;
     const positionAttribute = points.geometry.getAttribute('position');
 
     for (let particleIndex = 0; particleIndex < positionAttribute.count; particleIndex += 1) {
@@ -1239,39 +1359,77 @@ function updateBoundaryLobes(state, motionTime) {
     positionAttribute.needsUpdate = true;
 
     shell.rotation.set(
-      surfaceBaseRotation.x + state.pathPosition * 0.018 * (index % 2 ? -1 : 1),
-      surfaceBaseRotation.y + spinAngle,
-      surfaceBaseRotation.z + state.pathPosition * 0.012 * (index % 2 ? 1 : -1),
+      surfaceBaseRotation.x,
+      surfaceBaseRotation.y + verticalSpinAngle,
+      surfaceBaseRotation.z,
     );
     points.rotation.copy(shell.rotation);
     atmosphere.rotation.copy(shell.rotation);
     corona.rotation.set(
       shell.rotation.x * 0.72,
-      surfaceBaseRotation.y + spinAngle * 0.92,
+      surfaceBaseRotation.y + verticalSpinAngle,
       shell.rotation.z * 0.66,
     );
-    lobe.scale.set(
-      1 - compression * 0.2 + flash * 0.06,
-      1 + compression * 0.08,
-      1 + compression * 0.08,
+    surfaceEffects.rotation.set(
+      0,
+      lobe.userData.impactCaptured ? elapsedSinceImpact * BOUNDARY_SPIN_RATE : 0,
+      0,
     );
+    const lobeScale = 1.42;
+    lobe.scale.setScalar(lobeScale);
     shell.material.uniforms.uReveal.value = state.reveal;
     shell.material.uniforms.uImpact.value = flash;
     shell.material.uniforms.uScar.value = scar;
     atmosphere.material.uniforms.uReveal.value = state.reveal;
-    atmosphere.material.uniforms.uImpact.value = flash;
+    // The impact flash decays, but the halo stays thermally hot after contact.
+    const sustainedHeat = impactAge < 0 ? 0 : 1 - Math.exp(-impactAge * 16);
+    atmosphere.material.uniforms.uImpact.value = Math.max(flash, sustainedHeat * 0.34);
+    atmosphere.material.uniforms.uHeat.value = sustainedHeat;
     points.material.color.copy(emberTint).lerp(impactTint, flash * 0.68);
     points.material.opacity = state.reveal * (0.08 + flash * 0.38 + scar * 0.08);
     corona.material.opacity = state.reveal * (0.2 + compression * 0.08 + flash * 0.24);
     core.material.opacity = state.reveal * (flash * 0.98 + scar * 0.045);
     core.scale.setScalar(0.2 + flash * 0.46 + scar * 0.03);
 
+    const ripplePositionAttribute = ripple.geometry.getAttribute('position');
+    const rippleAlphaAttribute = ripple.geometry.getAttribute('aAlpha');
+    const rippleDamping = state.rippleStrength;
+    for (let rippleIndex = 0; rippleIndex < ripplePositionAttribute.count; rippleIndex += 1) {
+      const ringIndex = Math.floor(rippleIndex / 96);
+      const ringAge = elapsedSinceImpact - ringIndex * 0.12;
+      const offset = rippleIndex * 3;
+      if (!lobe.userData.impactCaptured || ringAge < 0 || ringAge > 2.9) {
+        rippleAlphaAttribute.array[rippleIndex] = 0;
+        continue;
+      }
+
+      const ringProgress = THREE.MathUtils.clamp(ringAge / 2.35, 0, 1);
+      const sigma = 0.06 + ringProgress * 0.92;
+      const phase = ripplePhase[rippleIndex] + ringAge * 5.8;
+      const sinSigma = Math.sin(sigma);
+      const surfaceX = contactDirection.x * Math.cos(sigma)
+        + (tangentA.x * Math.cos(phase) + tangentB.x * Math.sin(phase)) * sinSigma;
+      const surfaceY = contactDirection.y * Math.cos(sigma)
+        + (tangentA.y * Math.cos(phase) + tangentB.y * Math.sin(phase)) * sinSigma;
+      const surfaceZ = contactDirection.z * Math.cos(sigma)
+        + (tangentA.z * Math.cos(phase) + tangentB.z * Math.sin(phase)) * sinSigma;
+      const surfaceLength = Math.hypot(surfaceX, surfaceY, surfaceZ);
+      const surfaceScale = 0.642 / Math.max(0.001, surfaceLength);
+      ripplePositionAttribute.array[offset] = surfaceX * surfaceScale;
+      ripplePositionAttribute.array[offset + 1] = surfaceY * surfaceScale;
+      ripplePositionAttribute.array[offset + 2] = surfaceZ * surfaceScale;
+      const rise = smoothstep(THREE.MathUtils.clamp(ringAge / 0.045, 0, 1));
+      const fade = 1 - smoothstep(THREE.MathUtils.clamp((ringAge - 1.2) / 1.7, 0, 1));
+      rippleAlphaAttribute.array[rippleIndex] = rise * fade * rippleDamping * (0.68 + flash * 0.36);
+    }
+    ripplePositionAttribute.needsUpdate = true;
+    rippleAlphaAttribute.needsUpdate = true;
+    ripple.material.uniforms.uOpacity.value = state.reveal * 1.3;
+    ripple.material.uniforms.uPointScale.value = renderer.domElement.height * 0.72;
+
     const splashPositionAttribute = splash.geometry.getAttribute('position');
     const splashAlphaAttribute = splash.geometry.getAttribute('aAlpha');
-    const postSixthDamping = state.completedImpacts >= 6
-      ? 1 - smoothstep(THREE.MathUtils.clamp((state.impactClock - 6) / 0.8, 0, 1))
-      : 1;
-    const splashDamping = state.rippleStrength * postSixthDamping;
+    const splashDamping = state.rippleStrength;
     for (let particleIndex = 0; particleIndex < splashPositionAttribute.count; particleIndex += 1) {
       const offset = particleIndex * 3;
       const localAge = elapsedSinceImpact - splashDelays[particleIndex];
@@ -1283,36 +1441,81 @@ function updateBoundaryLobes(state, motionTime) {
 
       const lifeProgress = localAge / lifetime;
       const particleType = splashTypes[particleIndex];
-      const baseX = splashSurfaceDirections[offset];
-      const baseY = splashSurfaceDirections[offset + 1];
-      const baseZ = splashSurfaceDirections[offset + 2];
-      const sweepDirection = particleIndex % 13 === 0 ? -1 : 1;
-      const sweepAngle = localAge * 7.2 * splashSpinDrag[particleIndex] * sweepDirection;
-      const cosSweep = Math.cos(sweepAngle);
-      const sinSweep = Math.sin(sweepAngle);
-      const sweptX = baseX * cosSweep - baseZ * sinSweep;
-      const sweptZ = baseX * sinSweep + baseZ * cosSweep;
-      const velocitySweep = sweepAngle * (particleType === 0 ? 0.9 : 0.48);
-      const velocityCos = Math.cos(velocitySweep);
-      const velocitySin = Math.sin(velocitySweep);
-      const velocityX = splashVelocities[offset] * velocityCos - splashVelocities[offset + 2] * velocitySin;
-      const velocityZ = splashVelocities[offset] * velocitySin + splashVelocities[offset + 2] * velocityCos;
-      const surfaceLift = particleType === 0
-        ? Math.sin(lifeProgress * Math.PI) * (0.1 + splashEnergy[particleIndex] * 0.16)
-        : 0;
-      const travelScale = particleType === 0 ? 0.34 : particleType === 1 ? 0.92 : 1.16;
-      const travel = localAge * travelScale * (1 - lifeProgress * (particleType === 0 ? 0.08 : 0.24));
-      const falloff = particleType === 0 ? 0.025 : particleType === 1 ? 0.12 : 0.2;
-      splashPositionAttribute.array[offset] = sweptX * (0.64 + surfaceLift) + velocityX * travel;
-      splashPositionAttribute.array[offset + 1] = baseY * (0.64 + surfaceLift)
-        + splashVelocities[offset + 1] * travel
-        - localAge * localAge * falloff;
-      splashPositionAttribute.array[offset + 2] = sweptZ * (0.64 + surfaceLift) + velocityZ * travel;
+      const energy = splashEnergy[particleIndex];
+      const phase = particleIndex * 2.39996323 + lobe.userData.phase;
+      const angularSpeed = 4.6 + splashSpinDrag[particleIndex] * 8.4;
+      const vortexAngle = phase + localAge * angularSpeed;
+      const cosVortex = Math.cos(vortexAngle);
+      const sinVortex = Math.sin(vortexAngle);
+
+      if (particleType === 0) {
+        // Surface-bound ejecta spreads over a spherical cap. The parent
+        // surfaceEffects group supplies the same vertical spin as the body.
+        const geodesic = 0.04 + localAge * (0.3 + energy * 0.42);
+        const sigma = Math.min(1.05, geodesic);
+        const surfaceX = contactDirection.x * Math.cos(sigma)
+          + (tangentA.x * cosVortex + tangentB.x * sinVortex) * Math.sin(sigma);
+        const surfaceY = contactDirection.y * Math.cos(sigma)
+          + (tangentA.y * cosVortex + tangentB.y * sinVortex) * Math.sin(sigma);
+        const surfaceZ = contactDirection.z * Math.cos(sigma)
+          + (tangentA.z * cosVortex + tangentB.z * sinVortex) * Math.sin(sigma);
+        const surfaceLength = Math.hypot(surfaceX, surfaceY, surfaceZ);
+        const lift = 0.018 + energy * 0.08 * Math.exp(-localAge * 1.3);
+        const surfaceScale = (0.642 + lift) / Math.max(0.001, surfaceLength);
+        splashPositionAttribute.array[offset] = surfaceX * surfaceScale;
+        splashPositionAttribute.array[offset + 1] = surfaceY * surfaceScale;
+        splashPositionAttribute.array[offset + 2] = surfaceZ * surfaceScale;
+      } else if (particleType === 1) {
+        // The main ejecta keeps its three Archimedean arms, but each particle
+        // receives an independent vertical/depth layer so it reads as a 3D
+        // spray volume rather than a single horizontal slice.
+        const radialSeed = ((particleIndex * 37 + index * 17) % 997) / 997;
+        const jitterSeed = ((particleIndex * 71 + 13) % 101) / 101 - 0.5;
+        const layerSeed = ((particleIndex * 113 + index * 29) % 991) / 991 - 0.5;
+        const depthSeed = ((particleIndex * 89 + index * 11) % 977) / 977 - 0.5;
+        const arm = particleIndex % 3;
+        const targetAngle = radialSeed * Math.PI * 4.6 + arm * Math.PI * 2 / 3;
+        const targetRadius = 0.72 + radialSeed * 1.72 + jitterSeed * 0.12;
+        const spread = smoothstep(THREE.MathUtils.clamp(localAge / 0.78, 0, 1));
+        const diskAngle = targetAngle * spread
+          + localAge * (0.5 + splashSpinDrag[particleIndex] * 0.85);
+        const diskRadius = THREE.MathUtils.lerp(0.642, targetRadius, spread)
+          + Math.sin(targetAngle * 3 + phase) * 0.028 * spread;
+        const diskTilt = 0.18 + energy * 0.16;
+        const diskX = Math.cos(diskAngle) * diskRadius;
+        const diskDepth = Math.sin(diskAngle) * diskRadius;
+        const layerAmplitude = (0.08 + spread * 0.38) * (0.55 + radialSeed * 0.72);
+        const verticalLayer = layerSeed * layerAmplitude
+          + Math.sin(targetAngle * 1.7 + phase + localAge * 2.2) * 0.045 * spread;
+        const depthLayer = depthSeed * (0.06 + spread * 0.24);
+        splashPositionAttribute.array[offset] = diskX;
+        splashPositionAttribute.array[offset + 1] = diskDepth * Math.sin(diskTilt)
+          + jitterSeed * 0.085 * spread + verticalLayer;
+        splashPositionAttribute.array[offset + 2] = diskDepth * Math.cos(diskTilt) + depthLayer;
+      } else {
+        // A small fast population keeps the initial collision explosive before
+        // the larger rotating cross-section becomes readable.
+        const spiralRadius = 0.018 + localAge * (0.12 + energy * 0.25);
+        const forwardDistance = localAge
+          * (0.78 + energy * 0.6)
+          * Math.exp(-localAge * 0.16);
+        const lift = Math.sin(vortexAngle * 0.5) * 0.025 * energy;
+        splashPositionAttribute.array[offset] = contactDirection.x * (0.642 + forwardDistance)
+          + tangentA.x * cosVortex * spiralRadius
+          + tangentB.x * sinVortex * spiralRadius;
+        splashPositionAttribute.array[offset + 1] = contactDirection.y * (0.642 + forwardDistance)
+          + tangentA.y * cosVortex * spiralRadius
+          + tangentB.y * sinVortex * spiralRadius
+          + lift;
+        splashPositionAttribute.array[offset + 2] = contactDirection.z * (0.642 + forwardDistance)
+          + tangentA.z * cosVortex * spiralRadius
+          + tangentB.z * sinVortex * spiralRadius;
+      }
       const rise = smoothstep(THREE.MathUtils.clamp(localAge / 0.045, 0, 1));
       const fade = 1 - smoothstep(THREE.MathUtils.clamp((lifeProgress - 0.46) / 0.54, 0, 1));
-      const typeOpacity = particleType === 0 ? 0.72 : particleType === 1 ? 1 : 1.12;
+      const typeOpacity = particleType === 0 ? 0.7 : particleType === 1 ? 0.92 : 1.08;
       splashAlphaAttribute.array[particleIndex] = rise * fade * typeOpacity
-        * (0.52 + splashEnergy[particleIndex] * 0.68) * splashDamping;
+        * (0.42 + energy * 0.7) * splashDamping;
     }
     splashPositionAttribute.needsUpdate = true;
     splashAlphaAttribute.needsUpdate = true;
@@ -1332,8 +1535,61 @@ function quaternionAlong(from, to) {
   return new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(0, 0, 1), direction);
 }
 
+function getBoundaryImpact(rotating = false) {
+  const lobe = boundaryField.lobes[0];
+  const localContact = lobe.userData.contactDirection.clone().multiplyScalar(0.642);
+  const surfaceObject = rotating ? lobe.userData.surfaceEffects : lobe;
+  surfaceObject.updateWorldMatrix(true, false);
+  const worldPoint = surfaceObject.localToWorld(localContact);
+  const centerWorld = lobe.getWorldPosition(new THREE.Vector3());
+  const normalWorld = worldPoint.clone().sub(centerWorld).normalize();
+  celestialField.updateWorldMatrix(true, false);
+  const localPoint = celestialField.worldToLocal(worldPoint.clone());
+  return { worldPoint, localPoint, normalWorld };
+}
+
+function updateSceneThreeCamera(frameTime, storyTime, cameraPush, recombination, state) {
+  const basePosition = new THREE.Vector3(
+    Math.sin(storyTime * 0.12) * 0.28 + cameraPush * 0.035,
+    0.12 + Math.cos(storyTime * 0.17) * 0.1,
+    12.5 - cameraPush * 1.1 + recombination.progress * 1.7,
+  );
+  const baseTarget = new THREE.Vector3(0, 0, 0);
+  const sceneThreePreviewProgress = smoothstep(
+    THREE.MathUtils.clamp((frameTime - (SCENE_TWO_END - 0.42)) / 0.42, 0, 1),
+  );
+  if (!state.active && sceneThreePreviewProgress <= 0) {
+    camera.position.copy(basePosition);
+    camera.lookAt(baseTarget);
+    return;
+  }
+
+  const waveWorld = wave.group.getWorldPosition(new THREE.Vector3());
+  const sphereWorld = boundaryField.lobes[0].getWorldPosition(new THREE.Vector3());
+  const followTarget = sphereWorld.clone().lerp(waveWorld, 0.34);
+  const followPosition = followTarget.clone().add(new THREE.Vector3(0, 0.18, 7.4));
+  const followProgress = state.active ? 1 : sceneThreePreviewProgress;
+  const surfaceProgress = state.active
+    ? smoothstep(THREE.MathUtils.clamp((state.impactClock - 1) / 0.34, 0, 1))
+    : 0;
+  // Lock the post-impact camera to the sphere center. Following the rotating
+  // contact point made the camera co-rotate with the body and visually erased
+  // its vertical-axis spin.
+  const surfaceTarget = sphereWorld;
+  // A slight elevated angle reveals the annular particle orbit instead of
+  // collapsing it into a flat horizontal slice.
+  const surfacePosition = surfaceTarget.clone().add(new THREE.Vector3(0, 2.15, 6.9));
+
+  camera.position.copy(basePosition).lerp(followPosition, followProgress).lerp(surfacePosition, surfaceProgress);
+  camera.lookAt(baseTarget.lerp(followTarget, followProgress).lerp(surfaceTarget, surfaceProgress));
+}
+
 function updateSceneThreeWave(state) {
   if (!state.active) {
+    if (!wave.group.userData.sceneThreeActive) return;
+    wave.group.userData.sceneThreeActive = false;
+    wave.group.userData.sceneThreeStart = null;
+    wave.group.userData.sceneThreeStartQuaternion = null;
     wave.group.scale.setScalar(1);
     wave.group.userData.core.renderOrder = 0;
     wave.group.userData.core.material.depthTest = true;
@@ -1341,50 +1597,89 @@ function updateSceneThreeWave(state) {
     return;
   }
 
-  const startPosition = wave.group.position.clone();
-  const startQuaternion = wave.group.quaternion.clone();
+  wave.group.userData.sceneThreeActive = true;
+  wave.group.visible = true;
+  const lobe = boundaryField.lobes[0];
+  const impactTarget = getBoundaryImpact(false).localPoint;
+
   if (state.pathPosition <= 0) {
+    // Start well outside the core's right hemisphere. Capturing this explicit
+    // point prevents the scene-two wave position from making the wave appear
+    // glued to the impact surface on the first frame.
+    const centerWorld = lobe.getWorldPosition(new THREE.Vector3());
+    const outwardWorld = lobe.userData.contactDirection.clone().normalize();
+    const startWorld = centerWorld.addScaledVector(outwardWorld, 3.15);
+    celestialField.updateWorldMatrix(true, false);
+    const startPosition = celestialField.worldToLocal(startWorld);
+    wave.group.userData.sceneThreeStart = startPosition;
+    wave.group.userData.sceneThreeStartQuaternion = quaternionAlong(
+      startPosition,
+      impactTarget,
+    );
+    wave.group.position.copy(startPosition);
+    wave.group.quaternion.copy(wave.group.userData.sceneThreeStartQuaternion);
     wave.group.scale.setScalar(1);
+    wave.group.userData.core.scale.setScalar(0.82);
+    wave.group.userData.core.material.color.copy(WAVE_BASE_COLOR);
+    wave.group.userData.core.material.opacity = 0.94;
+    wave.group.userData.particles.material.opacity = 0.88;
     wave.group.userData.frozenCoreBoost.material.opacity = 0;
     return;
   }
 
-  const segmentIndex = Math.min(5, Math.floor(Math.min(state.pathPosition, 5.999999)));
-  const segmentProgress = state.pathPosition >= 6 ? 1 : state.pathPosition - segmentIndex;
-  const easedProgress = smoothstep(segmentProgress);
-  const from = segmentIndex === 0 ? startPosition : boundaryField.positions[segmentIndex - 1];
-  const to = boundaryField.positions[segmentIndex];
-  const fromQuaternion = segmentIndex === 0
-    ? startQuaternion
-    : quaternionAlong(
-      segmentIndex === 1 ? startPosition : boundaryField.positions[segmentIndex - 2],
-      boundaryField.positions[segmentIndex - 1],
-    );
-  const toQuaternion = quaternionAlong(from, to);
+  const startPosition = wave.group.userData.sceneThreeStart ?? wave.group.position.clone();
+  const startQuaternion = wave.group.userData.sceneThreeStartQuaternion ?? wave.group.quaternion.clone();
+  const travellingProgress = 1 - Math.pow(1 - state.pathPosition, 2.35);
+  const impactAge = Math.max(0, state.impactClock - 1) * SCENE_THREE_IMPACT_TRAVEL;
 
-  wave.group.position.copy(from).lerp(to, easedProgress);
-  wave.group.quaternion.copy(fromQuaternion).slerp(toQuaternion, easedProgress);
-  const travellingScale = THREE.MathUtils.lerp(
-    1,
-    0.44,
-    smoothstep(THREE.MathUtils.clamp(state.pathPosition / 0.9, 0, 1)),
-  );
-  // Freeze removes the oscillation, not the sound wave's physical footprint.
-  wave.group.scale.setScalar(travellingScale);
-  wave.group.userData.particles.material.opacity *= state.rippleStrength;
+  if (state.pathPosition < 1) {
+    // Fast leftward travel, with a short ease-out just before contact so the
+    // impact reads as a physical meeting rather than a teleport.
+    const toQuaternion = quaternionAlong(startPosition, impactTarget);
+    wave.group.position.copy(startPosition).lerp(impactTarget, travellingProgress);
+    wave.group.quaternion.copy(startQuaternion).slerp(toQuaternion, travellingProgress);
+  } else {
+    // After contact the wave is carried around the sphere's vertical axis.
+    // The spherical parameterization makes the orbit visible in 3D instead
+    // of leaving the wave fixed on the old right-hand contact point.
+    const axis = new THREE.Vector3(0, 1, 0);
+    const surfaceAngle = impactAge * BOUNDARY_SPIN_RATE;
+    const surfaceNormal = lobe.userData.contactDirection.clone()
+      .applyAxisAngle(axis, surfaceAngle)
+      .normalize();
+    const surfaceWorld = lobe.getWorldPosition(new THREE.Vector3())
+      .addScaledVector(surfaceNormal, 0.642 * 1.42);
+    celestialField.updateWorldMatrix(true, false);
+    const surfacePosition = celestialField.worldToLocal(surfaceWorld);
+    const centerPosition = celestialField.worldToLocal(
+      lobe.getWorldPosition(new THREE.Vector3()),
+    );
+    const tangent = axis.clone().cross(surfaceNormal).normalize();
+    const tangentEnd = surfacePosition.clone().add(tangent);
+    // As the sound freezes, it loses its surface orbit and is drawn into the
+    // exact center of the 六合. The sprite footprint stays constant; only its
+    // position and the surrounding wave energy are damped.
+    wave.group.position.copy(surfacePosition).lerp(centerPosition, state.freeze);
+    wave.group.quaternion.copy(quaternionAlong(surfacePosition, tangentEnd));
+  }
+
+  // Keep the wave's physical footprint fixed; silence removes the ripples and
+  // particles, not the bright core itself.
+  wave.group.scale.setScalar(1);
+  wave.group.userData.particles.material.opacity = 0.88 * state.rippleStrength;
   wave.group.userData.rings.children.forEach((ring) => {
-    ring.material.opacity *= state.rippleStrength;
+    const ringEnvelope = 0.12 + Math.max(0, Math.cos(ring.userData.s * 19)) * 0.34;
+    ring.material.opacity = ringEnvelope * state.rippleStrength;
   });
-  wave.group.userData.core.scale.setScalar(THREE.MathUtils.lerp(
-    wave.group.userData.core.scale.x,
-    0.82,
-    state.freeze,
-  ));
+  const impactFlash = state.pathPosition >= 1 ? Math.exp(-impactAge * 10) : 0;
+  wave.group.userData.core.scale.setScalar(0.82);
   wave.group.userData.core.renderOrder = 20;
-  wave.group.userData.core.material.color.setHex(0xffffff);
+  waveDisplayColor.copy(WAVE_BASE_COLOR).lerp(FROZEN_WAVE_COLOR, state.freeze);
+  wave.group.userData.core.material.color.copy(waveDisplayColor);
   wave.group.userData.core.material.depthTest = false;
-  wave.group.userData.core.material.opacity = state.coreStrength;
+  wave.group.userData.core.material.opacity = state.coreStrength * (0.9 + impactFlash * 0.1);
   wave.group.userData.frozenCoreBoost.scale.copy(wave.group.userData.core.scale);
+  wave.group.userData.frozenCoreBoost.material.color.copy(FROZEN_WAVE_COLOR);
   wave.group.userData.frozenCoreBoost.material.opacity = state.freeze * 0.82;
 }
 
@@ -1415,6 +1710,13 @@ function updateScene(time, motionTime = time) {
   const frameTime = Math.min(SCENE_DURATION, Math.floor(time * FPS) / FPS);
   const recombination = getRecombinationState(frameTime);
   const sceneThree = getSceneThreeState(frameTime);
+  // Keep the exact second-scene endpoint owned by recombination. Scene three
+  // begins on the following 30 FPS frame, so its right-side approach cannot
+  // overwrite the second scene's final image.
+  const sceneThreeVisible = sceneThree.active && frameTime > SCENE_TWO_END;
+  const sceneThreeRenderState = sceneThreeVisible
+    ? sceneThree
+    : { ...sceneThree, active: false };
   const storyTime = frameTime >= SCENE_ONE_END ? recombination.waveTime : frameTime;
   const sceneThreeTransition = THREE.MathUtils.smoothstep(frameTime, SCENE_TWO_END, SCENE_TWO_END + 0.76);
   const oldFieldVisibility = 1 - sceneThreeTransition;
@@ -1425,22 +1727,22 @@ function updateScene(time, motionTime = time) {
   if (frame !== lastFrame) {
     lastFrame = frame;
     subtitleEl.textContent = getSubtitleAtTime(frameTime);
-    captionEl.textContent = sceneThree.active
+    captionEl.textContent = sceneThreeVisible
       ? '碰撞冲量  J = ∫F dt = Δp · 声痕冻结'
       : frameTime > SCENE_ONE_END
         ? '声学俘获 · x(t) = xw + (x₀ − xw)e^(−λt)'
       : frameTime >= 4.3
         ? '纵波位移  ξ(x,t) = A sin(kx - ωt)'
         : '原初光子 · 重子 · 声压峰';
-    const showSceneThreeTitle = frameTime >= SCENE_TWO_END + 0.25;
+    const showSceneThreeTitle = frameTime > SCENE_TWO_END + 0.25;
     const showSceneTwoTitle = frameTime >= SCENE_ONE_END + 0.3;
     eyebrowEl.textContent = showSceneThreeTitle
-      ? 'SCENE 03 / SIX DIRECTIONS'
+      ? 'SCENE 03 / SIXFOLD CORE'
       : showSceneTwoTitle
         ? 'SCENE 02 / RECOMBINATION'
         : 'SCENE 01 / PRIMORDIAL PLASMA';
     titleSubEl.textContent = showSceneThreeTitle
-      ? '一声，撞向六方。'
+      ? '一声，撞向六合。'
       : showSceneTwoTitle
         ? '光与物质，从此分离。'
         : '很久以前，声音还没有名字。';
@@ -1467,7 +1769,7 @@ function updateScene(time, motionTime = time) {
   epochMarkerEl.style.opacity = `${epochIn * epochOut}`;
   epochMarkerEl.style.transform = `translateY(${(1 - epochIn) * 8}px)`;
   baryonVelocityEl.textContent = recombination.baryonVelocity.toFixed(3);
-  impactMarkerEl.style.opacity = `${sceneThree.active ? sceneThree.reveal * (1 - sceneThree.freeze * 0.35) : 0}`;
+  impactMarkerEl.style.opacity = `${sceneThreeVisible ? sceneThree.reveal * (1 - sceneThree.freeze * 0.35) : 0}`;
   impactMarkerEl.style.transform = `translateY(${(1 - sceneThree.reveal) * 8}px)`;
   impactCountEl.textContent = String(sceneThree.completedImpacts).padStart(2, '0');
   nodes.forEach(({ group, definition }, index) => {
@@ -1529,17 +1831,14 @@ function updateScene(time, motionTime = time) {
     line.computeLineDistances();
   });
 
-  updateBoundaryLobes(sceneThree, motionTime);
+  updateBoundaryLobes(sceneThreeRenderState, motionTime);
   updateWave(frameTime);
-  updateSceneThreeWave(sceneThree);
+  updateSceneThreeWave(sceneThreeRenderState);
   stars.children.forEach((starLayer) => {
     starLayer.material.uniforms.uAbsorbTarget.value.copy(wave.group.position);
   });
   const cameraPush = getCameraPushAtTime(frameTime);
-  camera.position.x = Math.sin(storyTime * 0.12) * 0.28 + cameraPush * 0.035;
-  camera.position.y = 0.12 + Math.cos(storyTime * 0.17) * 0.1;
-  camera.position.z = 12.5 - cameraPush * 1.1 + recombination.progress * 1.7;
-  camera.lookAt(0, 0, 0);
+  updateSceneThreeCamera(frameTime, storyTime, cameraPush, recombination, sceneThreeRenderState);
   camera.updateMatrixWorld();
   updateWaveEquation(frameTime);
   updateLabels();
