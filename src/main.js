@@ -548,46 +548,114 @@ function createBoundaryLobes() {
     burst.position.copy(core.position);
     burst.scale.setScalar(0.3);
 
-    const splashCount = 520;
-    const splashBasePositions = new Float32Array(splashCount * 3);
+    const splashCount = 900;
     const splashPositions = new Float32Array(splashCount * 3);
     const splashVelocities = new Float32Array(splashCount * 3);
+    const splashSurfaceDirections = new Float32Array(splashCount * 3);
     const splashColors = new Float32Array(splashCount * 3);
+    const splashSizes = new Float32Array(splashCount);
+    const splashEnergy = new Float32Array(splashCount);
+    const splashAlpha = new Float32Array(splashCount);
+    const splashTypes = new Uint8Array(splashCount);
+    const splashDelays = new Float32Array(splashCount);
+    const splashLifetimes = new Float32Array(splashCount);
+    const splashSpinDrag = new Float32Array(splashCount);
     for (let i = 0; i < splashCount; i += 1) {
       const angle = i * 2.39996323 + lobeIndex * 0.43;
-      const spread = 0.16 + ((i * 29 + lobeIndex * 11) % 41) / 41 * 0.62;
-      const forward = 0.22 + ((i * 17 + lobeIndex * 7) % 37) / 37 * 0.72;
-      const jitterA = Math.cos(angle) * (0.02 + (i % 5) * 0.007);
-      const jitterB = Math.sin(angle) * (0.02 + (i % 7) * 0.006);
+      const typeSeed = ((i * 47 + lobeIndex * 19) % 101) / 101;
+      const type = typeSeed < 0.3 ? 0 : typeSeed < 0.88 ? 1 : 2;
+      const speedSeed = ((i * 29 + lobeIndex * 11) % 97) / 97;
+      const tangentSeed = ((i * 71 + lobeIndex * 23) % 103) / 103;
+      const radialSpeed = type === 0
+        ? 0.12 + speedSeed * 0.3
+        : type === 1
+          ? 0.28 + speedSeed * 1.72
+          : 1.2 + speedSeed * 2.1;
+      const tangentSpeed = type === 0
+        ? 0.18 + tangentSeed ** 0.72 * 1.08
+        : type === 1
+          ? 0.06 + tangentSeed ** 0.68 * 2.08
+          : 0.28 + tangentSeed ** 0.62 * 2.55;
+      const jitterSeed = ((i * 13 + lobeIndex * 5) % 31) / 31;
+      const jitterRadius = 0.012 + Math.sqrt(jitterSeed) * 0.12;
+      const jitterA = Math.cos(angle) * jitterRadius;
+      const jitterB = Math.sin(angle) * jitterRadius;
       const origin = contactDirection.clone().multiplyScalar(0.59)
         .addScaledVector(tangentA, jitterA)
         .addScaledVector(tangentB, jitterB);
-      const velocity = contactDirection.clone().multiplyScalar(forward)
-        .addScaledVector(tangentA, Math.cos(angle) * spread)
-        .addScaledVector(tangentB, Math.sin(angle) * spread);
+      const velocity = contactDirection.clone().multiplyScalar(radialSpeed)
+        .addScaledVector(tangentA, Math.cos(angle) * tangentSpeed)
+        .addScaledVector(tangentB, Math.sin(angle) * tangentSpeed);
       const offset = i * 3;
-      splashBasePositions.set(origin.toArray(), offset);
       splashPositions.set(origin.toArray(), offset);
       splashVelocities.set(velocity.toArray(), offset);
-      const hotness = 0.48 + ((i * 23 + lobeIndex * 13) % 31) / 31 * 0.52;
-      const splashColor = new THREE.Color(0xff4b13).lerp(new THREE.Color(0xfff4ce), hotness);
+      const surfaceDirection = origin.normalize();
+      splashSurfaceDirections.set(surfaceDirection.toArray(), offset);
+      const hotness = ((i * 23 + lobeIndex * 13) % 31) / 31;
+      const splashColor = new THREE.Color(0xff2608).lerp(new THREE.Color(0xfff0b8), hotness ** 3.2);
       splashColors.set(splashColor.toArray(), offset);
+      const sizeSeed = ((i * 19 + lobeIndex * 5) % 43) / 43;
+      splashSizes[i] = (type === 1 ? 0.065 : 0.048) + sizeSeed ** 2 * (type === 2 ? 0.15 : 0.19);
+      splashEnergy[i] = 0.35 + ((i * 11 + lobeIndex * 17) % 37) / 37 * 0.65;
+      splashTypes[i] = type;
+      splashDelays[i] = ((i * 41 + lobeIndex * 17) % 97) / 97 * (type === 0 ? 0.24 : 0.14);
+      splashLifetimes[i] = type === 0
+        ? 1.05 + speedSeed * 0.9
+        : type === 1
+          ? 0.72 + speedSeed * 0.82
+          : 0.46 + speedSeed * 0.52;
+      splashSpinDrag[i] = type === 0
+        ? 0.72 + speedSeed * 0.32
+        : type === 1
+          ? 0.28 + speedSeed * 0.38
+          : 0.08 + speedSeed * 0.2;
     }
     const splashGeometry = new THREE.BufferGeometry();
     splashGeometry.setAttribute('position', new THREE.BufferAttribute(splashPositions, 3));
     splashGeometry.setAttribute('color', new THREE.BufferAttribute(splashColors, 3));
-    const splash = new THREE.Points(splashGeometry, new THREE.PointsMaterial({
-      size: 0.11,
-      map: texture,
-      color: 0xffcf82,
-      vertexColors: true,
+    splashGeometry.setAttribute('aSize', new THREE.BufferAttribute(splashSizes, 1));
+    splashGeometry.setAttribute('aEnergy', new THREE.BufferAttribute(splashEnergy, 1));
+    splashGeometry.setAttribute('aAlpha', new THREE.BufferAttribute(splashAlpha, 1).setUsage(THREE.DynamicDrawUsage));
+    const splash = new THREE.Points(splashGeometry, new THREE.ShaderMaterial({
+      uniforms: {
+        uOpacity: { value: 0 },
+        uPointScale: { value: 180 },
+      },
+      vertexShader: `
+        attribute vec3 color;
+        attribute float aSize;
+        attribute float aEnergy;
+        attribute float aAlpha;
+        uniform float uPointScale;
+        varying vec3 vColor;
+        varying float vAlpha;
+        void main() {
+          vColor = color * (0.78 + aEnergy * 0.5);
+          vAlpha = aAlpha;
+          vec4 viewPosition = modelViewMatrix * vec4(position, 1.0);
+          gl_PointSize = max(1.0, aSize * uPointScale / max(1.0, -viewPosition.z));
+          gl_Position = projectionMatrix * viewPosition;
+        }
+      `,
+      fragmentShader: `
+        uniform float uOpacity;
+        varying vec3 vColor;
+        varying float vAlpha;
+        void main() {
+          float distanceToCenter = length(gl_PointCoord - vec2(0.5));
+          float gaussian = exp(-distanceToCenter * distanceToCenter * 18.0);
+          float alpha = gaussian * vAlpha * uOpacity;
+          if (alpha < 0.01) discard;
+          gl_FragColor = vec4(vColor, alpha);
+        }
+      `,
       transparent: true,
-      opacity: 0,
       depthTest: false,
       depthWrite: false,
       blending: THREE.AdditiveBlending,
-      sizeAttenuation: true,
     }));
+    splash.renderOrder = 12;
+    splash.frustumCulled = false;
 
     const lobe = new THREE.Group();
     lobe.add(atmosphere, corona, shell, points, core, burst, splash);
@@ -602,9 +670,16 @@ function createBoundaryLobes() {
       splash,
       basePositions,
       drift,
-      splashBasePositions,
       splashVelocities,
+      splashSurfaceDirections,
+      splashEnergy,
+      splashTypes,
+      splashDelays,
+      splashLifetimes,
+      splashSpinDrag,
       surfaceBaseRotation: shell.rotation.clone(),
+      impactSpinOrigin: 0,
+      impactCaptured: false,
       phase: lobeIndex * 0.73,
     };
     group.add(lobe);
@@ -1008,6 +1083,9 @@ function createWavePacket() {
   const group = new THREE.Group();
   const core = new THREE.Sprite(new THREE.SpriteMaterial({ map: texture, color: WAVE_COLOR, transparent: true, opacity: 0.9, depthWrite: false, blending: THREE.AdditiveBlending }));
   group.add(core);
+  const frozenCoreBoost = new THREE.Sprite(new THREE.SpriteMaterial({ map: texture, color: 0xffffff, transparent: true, opacity: 0, depthTest: false, depthWrite: false, blending: THREE.AdditiveBlending }));
+  frozenCoreBoost.renderOrder = 21;
+  group.add(frozenCoreBoost);
   const geometry = new THREE.BufferGeometry();
   const positions = new Float32Array(360 * 3);
   const colors = new Float32Array(360 * 3);
@@ -1035,7 +1113,7 @@ function createWavePacket() {
   }
   group.add(rings);
   group.visible = false;
-  group.userData = { core, particles, rings, meta };
+  group.userData = { core, frozenCoreBoost, particles, rings, meta };
   return { group, geometry, positions };
 }
 
@@ -1069,6 +1147,7 @@ function updateWave(time) {
   const coreOpacity = 0.9 * (1 - recombination.progress * 0.5);
   wave.group.userData.core.material.color.copy(waveDisplayColor);
   wave.group.userData.core.material.opacity = THREE.MathUtils.lerp(coreOpacity, 1, recombination.silenceBrightness);
+  wave.group.userData.frozenCoreBoost.material.opacity = 0;
   wave.group.userData.particles.material.opacity = THREE.MathUtils.lerp(0.92, 1, recombination.silenceBrightness);
   wave.group.userData.particles.material.size = THREE.MathUtils.lerp(0.044, 0.072, recombination.silenceBrightness);
   const positionAttribute = wave.geometry.getAttribute('position');
@@ -1101,7 +1180,12 @@ function updateWave(time) {
 
 function updateBoundaryLobes(state, motionTime) {
   boundaryField.group.visible = state.active;
-  if (!state.active) return;
+  if (!state.active) {
+    boundaryField.lobes.forEach((lobe) => {
+      lobe.userData.impactCaptured = false;
+    });
+    return;
+  }
 
   const emberTint = new THREE.Color(0xff4b16);
   const impactTint = new THREE.Color(0xffe7ae);
@@ -1124,10 +1208,24 @@ function updateBoundaryLobes(state, motionTime) {
       splash,
       basePositions,
       drift,
-      splashBasePositions,
       splashVelocities,
+      splashSurfaceDirections,
+      splashEnergy,
+      splashTypes,
+      splashDelays,
+      splashLifetimes,
+      splashSpinDrag,
       surfaceBaseRotation,
+      impactSpinOrigin,
+      impactCaptured,
     } = lobe.userData;
+    if (impactAge >= 0 && !impactCaptured) {
+      lobe.userData.impactSpinOrigin = motionTime;
+      lobe.userData.impactCaptured = true;
+    }
+    const elapsedSinceImpact = lobe.userData.impactCaptured
+      ? Math.max(0, motionTime - lobe.userData.impactSpinOrigin)
+      : 0;
     const spinAngle = motionTime * 7.2 + index * 0.52;
     const positionAttribute = points.geometry.getAttribute('position');
 
@@ -1169,37 +1267,63 @@ function updateBoundaryLobes(state, motionTime) {
     core.scale.setScalar(0.2 + flash * 0.46 + scar * 0.03);
 
     const splashPositionAttribute = splash.geometry.getAttribute('position');
-    const splashProgress = impactAge < 0 ? 0 : THREE.MathUtils.clamp(impactAge / 0.4, 0, 1);
+    const splashAlphaAttribute = splash.geometry.getAttribute('aAlpha');
+    const postSixthDamping = state.completedImpacts >= 6
+      ? 1 - smoothstep(THREE.MathUtils.clamp((state.impactClock - 6) / 0.8, 0, 1))
+      : 1;
+    const splashDamping = state.rippleStrength * postSixthDamping;
     for (let particleIndex = 0; particleIndex < splashPositionAttribute.count; particleIndex += 1) {
       const offset = particleIndex * 3;
-      const baseX = splashBasePositions[offset];
-      const baseY = splashBasePositions[offset + 1];
-      const baseZ = splashBasePositions[offset + 2];
-      const baseRadius = Math.max(0.001, Math.hypot(baseX, baseY, baseZ));
-      const sweepDirection = particleIndex % 2 === 0 ? 1 : -1;
-      const surfaceSpin = Math.max(0, impactAge) * (3.35 / 6) * 7.2;
-      const sweepAngle = surfaceSpin
-        + splashProgress * (0.38 + (particleIndex % 7) * 0.045) * sweepDirection;
+      const localAge = elapsedSinceImpact - splashDelays[particleIndex];
+      const lifetime = splashLifetimes[particleIndex];
+      if (!lobe.userData.impactCaptured || localAge < 0 || localAge > lifetime) {
+        splashAlphaAttribute.array[particleIndex] = 0;
+        continue;
+      }
+
+      const lifeProgress = localAge / lifetime;
+      const particleType = splashTypes[particleIndex];
+      const baseX = splashSurfaceDirections[offset];
+      const baseY = splashSurfaceDirections[offset + 1];
+      const baseZ = splashSurfaceDirections[offset + 2];
+      const sweepDirection = particleIndex % 13 === 0 ? -1 : 1;
+      const sweepAngle = localAge * 7.2 * splashSpinDrag[particleIndex] * sweepDirection;
       const cosSweep = Math.cos(sweepAngle);
       const sinSweep = Math.sin(sweepAngle);
       const sweptX = baseX * cosSweep - baseZ * sinSweep;
       const sweptZ = baseX * sinSweep + baseZ * cosSweep;
-      const surfaceScale = 0.64 / baseRadius;
-      const tangentAmount = Math.sin(splashProgress * Math.PI) * 0.16;
-      splashPositionAttribute.array[offset] = sweptX * surfaceScale + splashVelocities[offset] * tangentAmount;
-      splashPositionAttribute.array[offset + 1] = baseY * surfaceScale
-        + splashVelocities[offset + 1] * tangentAmount;
-      splashPositionAttribute.array[offset + 2] = sweptZ * surfaceScale + splashVelocities[offset + 2] * tangentAmount;
+      const velocitySweep = sweepAngle * (particleType === 0 ? 0.9 : 0.48);
+      const velocityCos = Math.cos(velocitySweep);
+      const velocitySin = Math.sin(velocitySweep);
+      const velocityX = splashVelocities[offset] * velocityCos - splashVelocities[offset + 2] * velocitySin;
+      const velocityZ = splashVelocities[offset] * velocitySin + splashVelocities[offset + 2] * velocityCos;
+      const surfaceLift = particleType === 0
+        ? Math.sin(lifeProgress * Math.PI) * (0.1 + splashEnergy[particleIndex] * 0.16)
+        : 0;
+      const travelScale = particleType === 0 ? 0.34 : particleType === 1 ? 0.92 : 1.16;
+      const travel = localAge * travelScale * (1 - lifeProgress * (particleType === 0 ? 0.08 : 0.24));
+      const falloff = particleType === 0 ? 0.025 : particleType === 1 ? 0.12 : 0.2;
+      splashPositionAttribute.array[offset] = sweptX * (0.64 + surfaceLift) + velocityX * travel;
+      splashPositionAttribute.array[offset + 1] = baseY * (0.64 + surfaceLift)
+        + splashVelocities[offset + 1] * travel
+        - localAge * localAge * falloff;
+      splashPositionAttribute.array[offset + 2] = sweptZ * (0.64 + surfaceLift) + velocityZ * travel;
+      const rise = smoothstep(THREE.MathUtils.clamp(localAge / 0.045, 0, 1));
+      const fade = 1 - smoothstep(THREE.MathUtils.clamp((lifeProgress - 0.46) / 0.54, 0, 1));
+      const typeOpacity = particleType === 0 ? 0.72 : particleType === 1 ? 1 : 1.12;
+      splashAlphaAttribute.array[particleIndex] = rise * fade * typeOpacity
+        * (0.52 + splashEnergy[particleIndex] * 0.68) * splashDamping;
     }
     splashPositionAttribute.needsUpdate = true;
-    const splashRise = smoothstep(THREE.MathUtils.clamp(impactAge / 0.055, 0, 1));
-    const splashEnvelope = impactAge < 0
-      ? 0
-      : state.reveal * splashRise * Math.exp(-impactAge * 1.55);
-    splash.material.opacity = splashEnvelope * 2.05;
-    splash.material.size = 0.15 + flash * 0.08;
-    burst.material.opacity = splashEnvelope * 0.9;
-    burst.scale.setScalar(0.28 + splashEnvelope * 0.78);
+    splashAlphaAttribute.needsUpdate = true;
+    splash.material.uniforms.uOpacity.value = state.reveal * 1.9;
+    splash.material.uniforms.uPointScale.value = renderer.domElement.height * 0.72;
+    const burstRise = smoothstep(THREE.MathUtils.clamp(elapsedSinceImpact / 0.035, 0, 1));
+    const burstEnvelope = lobe.userData.impactCaptured
+      ? burstRise * Math.exp(-elapsedSinceImpact * 5.2)
+      : 0;
+    burst.material.opacity = state.reveal * burstEnvelope * 0.95;
+    burst.scale.setScalar(0.28 + burstEnvelope * 0.82);
   });
 }
 
@@ -1213,6 +1337,7 @@ function updateSceneThreeWave(state) {
     wave.group.scale.setScalar(1);
     wave.group.userData.core.renderOrder = 0;
     wave.group.userData.core.material.depthTest = true;
+    wave.group.userData.frozenCoreBoost.material.opacity = 0;
     return;
   }
 
@@ -1220,6 +1345,7 @@ function updateSceneThreeWave(state) {
   const startQuaternion = wave.group.quaternion.clone();
   if (state.pathPosition <= 0) {
     wave.group.scale.setScalar(1);
+    wave.group.userData.frozenCoreBoost.material.opacity = 0;
     return;
   }
 
@@ -1243,7 +1369,8 @@ function updateSceneThreeWave(state) {
     0.44,
     smoothstep(THREE.MathUtils.clamp(state.pathPosition / 0.9, 0, 1)),
   );
-  wave.group.scale.setScalar(THREE.MathUtils.lerp(travellingScale, 0.2, state.freeze));
+  // Freeze removes the oscillation, not the sound wave's physical footprint.
+  wave.group.scale.setScalar(travellingScale);
   wave.group.userData.particles.material.opacity *= state.rippleStrength;
   wave.group.userData.rings.children.forEach((ring) => {
     ring.material.opacity *= state.rippleStrength;
@@ -1257,6 +1384,8 @@ function updateSceneThreeWave(state) {
   wave.group.userData.core.material.color.setHex(0xffffff);
   wave.group.userData.core.material.depthTest = false;
   wave.group.userData.core.material.opacity = state.coreStrength;
+  wave.group.userData.frozenCoreBoost.scale.copy(wave.group.userData.core.scale);
+  wave.group.userData.frozenCoreBoost.material.opacity = state.freeze * 0.82;
 }
 
 function updateWaveEquation(time) {
