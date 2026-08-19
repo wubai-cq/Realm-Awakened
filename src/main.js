@@ -34,54 +34,51 @@ const FROZEN_WAVE_COLOR = new THREE.Color(0xc4f3d5);
 const waveDisplayColor = new THREE.Color();
 const BOUNDARY_SPIN_RATE = 4.2;
 
-// HIP identifiers and line topology come from Stellarium's western sky
-// culture (CON western Ori). The seven named stars stay in the reference
-// composition; auxiliary points preserve the catalogue stick figure without
-// adding extra labels.
+// The fourth-scene constellation is traced from the supplied reference image.
+// Coordinates preserve its node placement and crossing structure in 3D space.
 const ORION_POINTS = {
-  26727: [1.82, 2.52, 0.58], // Alnitak / 参宿一
-  26311: [1.18, -0.35, -0.20], // Alnilam / 参宿二
-  25930: [0.58, -0.86, 0.26], // Mintaka / 参宿三
-  27989: [-2.55, 1.58, 0.42], // Betelgeuse / 参宿四
-  25336: [-2.55, 0.35, -0.28], // Bellatrix / 参宿五
-  27366: [-1.55, -2.34, 0.18], // Saiph / 参宿六
-  24436: [2.02, -2.0, -0.48], // Rigel / 参宿七
-  // Orion's club, shoulder and sword vertices.
-  28691: [1.10, 3.18, 0.52],
-  29426: [0.55, 2.74, 0.24],
-  29038: [1.02, 2.25, 0.10],
-  27913: [0.08, 2.92, 0.38],
-  28614: [0.02, 1.46, 0.08],
-  26207: [0.02, -0.02, 0.18],
-  // Orion's shield vertices.
-  22449: [-3.48, 1.06, 0.18],
-  22549: [-3.18, 0.70, -0.02],
-  22730: [-3.02, 0.24, -0.18],
-  23123: [-2.88, -0.12, -0.30],
-  22509: [-3.36, 1.48, 0.22],
-  22845: [-3.18, 1.86, 0.28],
+  clubTip: [1.39, 3.28, 0.52],
+  upperHub: [-0.72, 2.02, 0.08],
+  upperKnee: [1.06, 2.78, 0.26],
+  upperRight: [1.95, 1.63, -0.08],
+  betelgeuse: [-2.00, 2.10, 0.42],
+  bellatrix: [-2.57, 0.97, -0.28],
+  lowerClubRoot: [-1.97, 1.34, 0.14],
+  beltRight: [1.55, -0.08, 0.18],
+  beltMiddle: [1.22, -0.35, -0.10],
+  beltLeft: [0.79, -0.56, 0.26],
+  lowerJoint: [0.55, -0.99, 0.04],
+  saiph: [-0.90, -3.28, 0.18],
+  lowerGuide: [-0.08, -3.61, -0.12],
+  rigel: [2.55, -2.77, -0.48],
 };
 
 const ORION_STARS = [
-  { label: '参宿四', latin: 'BETELGEUSE', position: ORION_POINTS[27989], scale: 0.15, color: 0xffc7a5 },
-  { label: '参宿五', latin: 'BELLATRIX', position: ORION_POINTS[25336], scale: 0.13, color: 0xd5e4ff },
-  { label: '参宿一', latin: 'ALNITAK', position: ORION_POINTS[26727], scale: 0.11, color: 0xdde9ff },
-  { label: '参宿二', latin: 'ALNILAM', position: ORION_POINTS[26311], scale: 0.13, color: 0xe4efff },
-  { label: '参宿三', latin: 'MINTAKA', position: ORION_POINTS[25930], scale: 0.12, color: 0xd9e7ff },
-  { label: '参宿六', latin: 'SAIPH', position: ORION_POINTS[27366], scale: 0.12, color: 0xcbdcff },
-  { label: '参宿七', latin: 'RIGEL', position: ORION_POINTS[24436], scale: 0.15, color: 0xd7e7ff },
+  { label: '参宿四', latin: 'BETELGEUSE', position: ORION_POINTS.betelgeuse, scale: 0.15, color: 0xffc7a5 },
+  { label: '参宿五', latin: 'BELLATRIX', position: ORION_POINTS.bellatrix, scale: 0.13, color: 0xd5e4ff },
+  { label: '猎宿一', latin: 'MEISSA', position: ORION_POINTS.clubTip, scale: 0.11, color: 0xdde9ff },
+  { label: '参宿三', latin: 'MINTAKA', position: ORION_POINTS.beltRight, scale: 0.12, color: 0xd9e7ff },
+  { label: '参宿二', latin: 'ALNILAM', position: ORION_POINTS.beltMiddle, scale: 0.13, color: 0xe4efff },
+  { label: '参宿一', latin: 'ALNITAK', position: ORION_POINTS.beltLeft, scale: 0.11, color: 0xdde9ff },
+  { label: '参宿六', latin: 'SAIPH', position: ORION_POINTS.saiph, scale: 0.12, color: 0xcbdcff },
+  { label: '参宿七', latin: 'RIGEL', position: ORION_POINTS.rigel, scale: 0.15, color: 0xd7e7ff },
 ];
 
-// Standard western Orion connections from Stellarium, kept as catalogue IDs
-// so every rendered segment has a traceable star-to-star meaning.
 const ORION_PATHS = [
-  [26727, 26311, 25930], // Orion's Belt
-  [28691, 29426, 29038, 27913], // Orion's Club
-  [29426, 28614, 27989, 26727, 27366, 24436, 25930, 25336, 26207, 27989], // body
-  [25336, 22449, 22549, 22730, 23123], // shield
-  [22449, 22509, 22845], // shield branch
-  [29038, 28614], // club return
-].map((path) => path.map((hip) => ORION_POINTS[hip]));
+  { emphasis: 1.55, points: [ORION_POINTS.betelgeuse, ORION_POINTS.clubTip] },
+  { emphasis: 1.55, points: [ORION_POINTS.lowerClubRoot, ORION_POINTS.clubTip] },
+  { emphasis: 1.35, points: [ORION_POINTS.betelgeuse, ORION_POINTS.bellatrix] },
+  { emphasis: 1.35, points: [ORION_POINTS.betelgeuse, ORION_POINTS.beltLeft] },
+  { emphasis: 1.45, points: [ORION_POINTS.bellatrix, ORION_POINTS.beltRight] },
+  { emphasis: 1.55, points: [ORION_POINTS.lowerJoint, ORION_POINTS.saiph] },
+  { emphasis: 1.55, points: [ORION_POINTS.beltRight, ORION_POINTS.rigel] },
+  { emphasis: 0.72, points: [ORION_POINTS.upperHub, ORION_POINTS.upperKnee, ORION_POINTS.upperRight, ORION_POINTS.beltRight] },
+  { emphasis: 0.72, points: [ORION_POINTS.upperHub, ORION_POINTS.upperRight] },
+  { emphasis: 0.72, points: [ORION_POINTS.upperHub, ORION_POINTS.lowerJoint] },
+  { emphasis: 0.72, points: [ORION_POINTS.beltRight, ORION_POINTS.beltMiddle, ORION_POINTS.beltLeft, ORION_POINTS.beltRight] },
+  { emphasis: 0.72, points: [ORION_POINTS.beltLeft, ORION_POINTS.lowerJoint, ORION_POINTS.lowerGuide] },
+  { emphasis: 0.72, points: [ORION_POINTS.beltMiddle, ORION_POINTS.rigel] },
+];
 
 const audio = document.querySelector('#narration');
 const canvas = document.querySelector('#scene');
@@ -307,7 +304,7 @@ function createSceneFourField(texture, labelsRoot) {
     return star;
   });
 
-  const lines = ORION_PATHS.map((pathPoints, index) => {
+  const lines = ORION_PATHS.map(({ points: pathPoints, emphasis }, index) => {
     const geometryCurve = new THREE.CurvePath();
     for (let pointIndex = 1; pointIndex < pathPoints.length; pointIndex += 1) {
       geometryCurve.add(new THREE.LineCurve3(
@@ -322,9 +319,12 @@ function createSceneFourField(texture, labelsRoot) {
       depthWrite: false,
       blending: THREE.AdditiveBlending,
     });
-    const line = new THREE.Mesh(new THREE.TubeGeometry(geometryCurve, pathPoints.length * 3, 0.014, 7, false), material);
+    const line = new THREE.Mesh(
+      new THREE.TubeGeometry(geometryCurve, pathPoints.length * 3, 0.014 * emphasis, 7, false),
+      material,
+    );
     const glow = new THREE.Mesh(
-      new THREE.TubeGeometry(geometryCurve, pathPoints.length * 3, 0.05, 7, false),
+      new THREE.TubeGeometry(geometryCurve, pathPoints.length * 3, 0.05 * emphasis, 7, false),
       new THREE.MeshBasicMaterial({
         color: 0x6d8db9,
         transparent: true,
