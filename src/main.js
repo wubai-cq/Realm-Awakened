@@ -53,15 +53,43 @@ const ORION_POINTS = {
   rigel: [2.55, -2.77, -0.48],
 };
 
+// Endpoint layout at the end of the supplied transformation video. The
+// semantic nodes stay the same while their positions settle into the final
+// compact Orion silhouette shown in the reference frame.
+const ORION_FINAL_POINTS = {
+  clubTip: [0.18, 3.42, 0.52],
+  // The lower triangle is a translated shadow of the upper triangle. Using
+  // one offset keeps all three corresponding edges parallel at the end.
+  upperHub: [-2.40, 1.96, 0.37],
+  upperKnee: [0.30, 3.26, 0.47],
+  upperRight: [0.94, 1.14, -0.21],
+  betelgeuse: [-2.52, 2.12, 0.42],
+  bellatrix: [1.58, 1.04, -0.28],
+  // Leave a small visible gap before Bellatrix at the final frame.
+  bellatrixApproach: [0.98, 1.20, -0.18],
+  // Separate endpoint for Meissa's descending line; it must not share a vertex.
+  meissaApproach: [0.82, 1.30, -0.16],
+  // Lower ray ends just short of Bellatrix instead of touching its star core.
+  bellatrixLowerApproach: [1.22, 0.47, -0.20],
+  lowerClubRoot: [-2.28, 1.66, 0.14],
+  beltRight: [0.58, -0.54, 0.18],
+  beltMiddle: [0.06, -0.94, -0.10],
+  beltLeft: [-0.46, -1.23, 0.26],
+  lowerJoint: [-0.52, -1.04, 0.04],
+  saiph: [-1.48, -3.30, 0.18],
+  lowerGuide: [-1.22, -3.55, -0.12],
+  rigel: [1.86, -2.96, -0.48],
+};
+
 const ORION_STARS = [
-  { label: '参宿四', latin: 'BETELGEUSE', position: ORION_POINTS.betelgeuse, scale: 0.15, color: 0xffc7a5 },
-  { label: '参宿五', latin: 'BELLATRIX', position: ORION_POINTS.bellatrix, scale: 0.13, color: 0xd5e4ff },
-  { label: '猎宿一', latin: 'MEISSA', position: ORION_POINTS.clubTip, scale: 0.11, color: 0xdde9ff },
-  { label: '参宿三', latin: 'MINTAKA', position: ORION_POINTS.beltRight, scale: 0.12, color: 0xd9e7ff },
-  { label: '参宿二', latin: 'ALNILAM', position: ORION_POINTS.beltMiddle, scale: 0.13, color: 0xe4efff },
-  { label: '参宿一', latin: 'ALNITAK', position: ORION_POINTS.beltLeft, scale: 0.11, color: 0xdde9ff },
-  { label: '参宿六', latin: 'SAIPH', position: ORION_POINTS.saiph, scale: 0.12, color: 0xcbdcff },
-  { label: '参宿七', latin: 'RIGEL', position: ORION_POINTS.rigel, scale: 0.15, color: 0xd7e7ff },
+  { label: '参宿四', latin: 'BETELGEUSE', position: ORION_POINTS.betelgeuse, targetPosition: ORION_FINAL_POINTS.betelgeuse, scale: 0.15, brightness: 1.45, color: 0xffc7a5 },
+  { label: '参宿五', latin: 'BELLATRIX', position: ORION_POINTS.bellatrix, targetPosition: ORION_FINAL_POINTS.bellatrix, scale: 0.13, brightness: 1.45, color: 0xd5e4ff },
+  { label: '猎宿一', latin: 'MEISSA', position: ORION_POINTS.clubTip, targetPosition: ORION_FINAL_POINTS.clubTip, scale: 0.11, brightness: 1.45, color: 0xdde9ff },
+  { label: '参宿三', latin: 'MINTAKA', position: ORION_POINTS.beltRight, targetPosition: ORION_FINAL_POINTS.beltRight, scale: 0.12, color: 0xd9e7ff },
+  { label: '参宿二', latin: 'ALNILAM', position: ORION_POINTS.beltMiddle, targetPosition: ORION_FINAL_POINTS.beltMiddle, scale: 0.13, color: 0xe4efff },
+  { label: '参宿一', latin: 'ALNITAK', position: ORION_POINTS.beltLeft, targetPosition: ORION_FINAL_POINTS.beltLeft, scale: 0.11, color: 0xdde9ff },
+  { label: '参宿六', latin: 'SAIPH', position: ORION_POINTS.saiph, targetPosition: ORION_FINAL_POINTS.saiph, scale: 0.12, color: 0xcbdcff },
+  { label: '参宿七', latin: 'RIGEL', position: ORION_POINTS.rigel, targetPosition: ORION_FINAL_POINTS.rigel, scale: 0.15, color: 0xd7e7ff },
 ];
 
 const ORION_PATHS = [
@@ -72,12 +100,42 @@ const ORION_PATHS = [
   { emphasis: 1.45, points: [ORION_POINTS.bellatrix, ORION_POINTS.beltRight] },
   { emphasis: 1.55, points: [ORION_POINTS.lowerJoint, ORION_POINTS.saiph] },
   { emphasis: 1.55, points: [ORION_POINTS.beltRight, ORION_POINTS.rigel] },
-  { emphasis: 0.72, points: [ORION_POINTS.upperHub, ORION_POINTS.upperKnee, ORION_POINTS.upperRight, ORION_POINTS.beltRight] },
+  // Keep the upper-left segment independent from the right-side segment.
+  { emphasis: 0.72, points: [ORION_POINTS.upperHub, ORION_POINTS.upperKnee] },
+  { emphasis: 0.72, points: [ORION_POINTS.upperRight, ORION_POINTS.beltRight] },
+  { emphasis: 0.72, points: [ORION_POINTS.upperKnee, ORION_POINTS.upperRight] },
   { emphasis: 0.72, points: [ORION_POINTS.upperHub, ORION_POINTS.upperRight] },
   { emphasis: 0.72, points: [ORION_POINTS.upperHub, ORION_POINTS.lowerJoint] },
   { emphasis: 0.72, points: [ORION_POINTS.beltRight, ORION_POINTS.beltMiddle, ORION_POINTS.beltLeft, ORION_POINTS.beltRight] },
   { emphasis: 0.72, points: [ORION_POINTS.beltLeft, ORION_POINTS.lowerJoint, ORION_POINTS.lowerGuide] },
   { emphasis: 0.72, points: [ORION_POINTS.beltMiddle, ORION_POINTS.rigel] },
+];
+
+// The upper triangle is the main figure. The existing triangle below it is
+// the shadow itself; no duplicate geometry is created for either layer.
+const ORION_UPPER_TRIANGLE_PATH_INDICES = new Set([0, 1, 2]);
+const ORION_LOWER_SHADOW_PATH_INDICES = new Set([7, 9, 10]);
+
+const ORION_FINAL_PATHS = [
+  [ORION_FINAL_POINTS.betelgeuse, ORION_FINAL_POINTS.clubTip],
+  // The descending Meissa segment has its own endpoint, separate from the other line.
+  [ORION_FINAL_POINTS.meissaApproach, ORION_FINAL_POINTS.clubTip],
+  // Aim at Bellatrix but stop before the star, matching the reference gap.
+  [ORION_FINAL_POINTS.betelgeuse, ORION_FINAL_POINTS.bellatrixApproach],
+  [ORION_FINAL_POINTS.betelgeuse, ORION_FINAL_POINTS.beltLeft],
+  [ORION_FINAL_POINTS.bellatrixLowerApproach, ORION_FINAL_POINTS.beltRight],
+  [ORION_FINAL_POINTS.lowerJoint, ORION_FINAL_POINTS.saiph],
+  [ORION_FINAL_POINTS.beltRight, ORION_FINAL_POINTS.rigel],
+  // Lower triangle bottom edge merges with the upper triangle's left edge.
+  [ORION_FINAL_POINTS.betelgeuse, ORION_FINAL_POINTS.clubTip],
+  // Merge this ray with the Bellatrix-to-Mintaka ray at the final frame.
+  [ORION_FINAL_POINTS.bellatrixLowerApproach, ORION_FINAL_POINTS.beltRight],
+  [ORION_FINAL_POINTS.upperKnee, ORION_FINAL_POINTS.upperRight],
+  // Lower triangle middle edge merges with the upper triangle's middle edge.
+  [ORION_FINAL_POINTS.betelgeuse, ORION_FINAL_POINTS.bellatrixApproach],
+  [ORION_FINAL_POINTS.beltRight, ORION_FINAL_POINTS.beltMiddle, ORION_FINAL_POINTS.beltLeft, ORION_FINAL_POINTS.beltRight],
+  [ORION_FINAL_POINTS.beltLeft, ORION_FINAL_POINTS.lowerJoint, ORION_FINAL_POINTS.lowerGuide],
+  [ORION_FINAL_POINTS.beltMiddle, ORION_FINAL_POINTS.rigel],
 ];
 
 const audio = document.querySelector('#narration');
@@ -211,6 +269,54 @@ async function loadReferenceCosmicWeb() {
   }
 }
 
+function createSceneFourTube(points, radius) {
+  const curve = new THREE.CurvePath();
+  for (let pointIndex = 1; pointIndex < points.length; pointIndex += 1) {
+    curve.add(new THREE.LineCurve3(points[pointIndex - 1], points[pointIndex]));
+  }
+  return new THREE.TubeGeometry(curve, Math.max(3, points.length * 3), radius, 7, false);
+}
+
+function interpolateSceneFourPoints(startPoints, targetPoints, progress) {
+  return startPoints.map((point, index) => point.clone().lerp(targetPoints[index], progress));
+}
+
+function updateSceneFourTube(line, points) {
+  const oldGeometry = line.geometry;
+  line.geometry = createSceneFourTube(points, line.userData.radius);
+  oldGeometry.dispose();
+}
+
+function getSceneFourLinePoints(line, lineMorph, stars, horizontalOffset) {
+  const points = interpolateSceneFourPoints(
+    line.userData.startPoints,
+    line.userData.targetPoints,
+    lineMorph,
+  );
+  points.forEach((point) => {
+    point.x += horizontalOffset;
+  });
+  if (line.userData.anchorStarIndex !== null) {
+    points[line.userData.anchorPointIndex].copy(stars[line.userData.anchorStarIndex].position);
+  }
+  if (line.userData.bellatrixRay) {
+    const bellatrixPosition = stars[1].position;
+    const bellatrixGap = THREE.MathUtils.lerp(
+      line.userData.bellatrixRay.startGap,
+      line.userData.bellatrixRay.gap,
+      lineMorph,
+    );
+    const bellatrixDirection = points[line.userData.bellatrixRay.sourceIndex]
+      .clone()
+      .sub(bellatrixPosition)
+      .normalize();
+    points[line.userData.bellatrixRay.endpointIndex]
+      .copy(bellatrixPosition)
+      .addScaledVector(bellatrixDirection, bellatrixGap);
+  }
+  return points;
+}
+
 function createSceneFourField(texture, labelsRoot) {
   const group = new THREE.Group();
   group.visible = false;
@@ -293,7 +399,17 @@ function createSceneFourField(texture, labelsRoot) {
     core.scale.setScalar(definition.scale);
     star.add(halo, core);
     star.position.set(...definition.position);
-    star.userData = { definition, index, halo, core, phase: index * 0.73 };
+    star.userData = {
+      definition,
+      index,
+      halo,
+      core,
+      phase: index * 0.73,
+      startPosition: new THREE.Vector3(...definition.position),
+      targetPosition: new THREE.Vector3(...definition.targetPosition),
+      graphPosition: new THREE.Vector3(...definition.position),
+      morphDelay: index * 0.018,
+    };
     group.add(star);
 
     const label = document.createElement('div');
@@ -305,35 +421,61 @@ function createSceneFourField(texture, labelsRoot) {
   });
 
   const lines = ORION_PATHS.map(({ points: pathPoints, emphasis }, index) => {
-    const geometryCurve = new THREE.CurvePath();
-    for (let pointIndex = 1; pointIndex < pathPoints.length; pointIndex += 1) {
-      geometryCurve.add(new THREE.LineCurve3(
-        new THREE.Vector3(...pathPoints[pointIndex - 1]),
-        new THREE.Vector3(...pathPoints[pointIndex]),
-      ));
-    }
+    const startPoints = pathPoints.map((point) => new THREE.Vector3(...point));
+    const targetPoints = ORION_FINAL_PATHS[index].map((point) => new THREE.Vector3(...point));
+    const bellatrixEndpointIndex = index === 1 ? 0 : index === 2 ? 1 : index === 4 ? 0 : null;
+    const bellatrixRay = bellatrixEndpointIndex === null
+      ? null
+      : (() => {
+        const bellatrixStart = new THREE.Vector3(...ORION_POINTS.bellatrix);
+        const bellatrixTarget = new THREE.Vector3(...ORION_FINAL_POINTS.bellatrix);
+        const endpointStart = startPoints[bellatrixEndpointIndex];
+        const endpointTarget = targetPoints[bellatrixEndpointIndex];
+        return {
+          endpointIndex: bellatrixEndpointIndex,
+          sourceIndex: bellatrixEndpointIndex === 0 ? 1 : 0,
+          startGap: endpointStart.distanceTo(bellatrixStart),
+          gap: endpointTarget.distanceTo(bellatrixTarget),
+        };
+      })();
+    const isLowerShadow = ORION_LOWER_SHADOW_PATH_INDICES.has(index);
     const material = new THREE.MeshBasicMaterial({
-      color: 0xb8cbed,
+      color: isLowerShadow ? 0x7186a4 : 0xb8cbed,
       transparent: true,
       opacity: 0,
       depthWrite: false,
       blending: THREE.AdditiveBlending,
     });
     const line = new THREE.Mesh(
-      new THREE.TubeGeometry(geometryCurve, pathPoints.length * 3, 0.014 * emphasis, 7, false),
+      createSceneFourTube(startPoints, 0.014 * emphasis),
       material,
     );
     const glow = new THREE.Mesh(
-      new THREE.TubeGeometry(geometryCurve, pathPoints.length * 3, 0.05 * emphasis, 7, false),
+      createSceneFourTube(startPoints, 0.05 * emphasis),
       new THREE.MeshBasicMaterial({
-        color: 0x6d8db9,
+        color: isLowerShadow ? 0x3e536f : 0x6d8db9,
         transparent: true,
         opacity: 0,
         depthWrite: false,
         blending: THREE.AdditiveBlending,
       }),
     );
-    line.userData = { index, glow };
+    line.userData = {
+      index,
+      glow,
+      isUpperTriangle: ORION_UPPER_TRIANGLE_PATH_INDICES.has(index),
+      isLowerShadow,
+      startPoints,
+      targetPoints,
+      bellatrixRay,
+      anchorStarIndex: index < 2 ? 2 : null,
+      anchorPointIndex: index < 2 ? 1 : null,
+      radius: 0.014 * emphasis,
+      glowRadius: 0.05 * emphasis,
+      morphDelay: index * 0.014,
+      lastMorphFrame: -1,
+    };
+    glow.userData.radius = 0.05 * emphasis;
     group.add(glow);
     group.add(line);
     return line;
@@ -1993,6 +2135,17 @@ function updateSceneFour(field, state, frameTime, boundaryField) {
     1,
   ));
   const sceneFourElapsed = Math.max(0, frameTime - SCENE_FOUR_START);
+  const graphMorph = smoothstep(THREE.MathUtils.clamp(
+    sceneFourElapsed / (SCENE_DURATION - SCENE_FOUR_START),
+    0,
+    1,
+  ));
+  const layerMerge = smoothstep(THREE.MathUtils.clamp(
+    (sceneFourElapsed - 0.48) / (SCENE_DURATION - SCENE_FOUR_START - 0.48),
+    0,
+    1,
+  ));
+  const shadowStrength = THREE.MathUtils.lerp(0.3, 0.16, layerMerge);
   group.rotation.x = depthReveal * (0.06 + Math.sin(sceneFourElapsed * 0.32) * 0.04);
   group.rotation.y = depthReveal * (-0.12 + Math.sin(sceneFourElapsed * 0.24) * 0.08);
   group.rotation.z = depthReveal * Math.sin(sceneFourElapsed * 0.18) * 0.025;
@@ -2007,25 +2160,56 @@ function updateSceneFour(field, state, frameTime, boundaryField) {
   imprint.position.copy(sphereCenter).lerp(imprintTarget, imprintMove);
   imprint.rotation.z = Math.sin((frameTime - SCENE_FOUR_START) * 0.7) * 0.08;
 
-  stars.forEach((star) => {
-    const { halo, core, phase, label } = star.userData;
+  stars.forEach((star, index) => {
+    const {
+      halo,
+      core,
+      phase,
+      label,
+      startPosition,
+      targetPosition,
+      graphPosition,
+      morphDelay,
+    } = star.userData;
+    const brightness = star.userData.definition.brightness ?? 1;
+    const nodeMorph = smoothstep(THREE.MathUtils.clamp(
+      (graphMorph - morphDelay) / (1 - morphDelay),
+      0,
+      1,
+    ));
+    graphPosition.lerpVectors(startPosition, targetPosition, nodeMorph);
+    star.position.copy(graphPosition);
     const pulse = 0.9 + Math.sin(frameTime * 1.6 + phase) * 0.1;
-    core.material.opacity = state.constellationReveal * pulse * 0.92;
-    halo.material.opacity = state.constellationReveal * pulse * 0.24;
+    core.material.opacity = Math.min(1, state.constellationReveal * pulse * 0.92 * brightness);
+    halo.material.opacity = Math.min(1, state.constellationReveal * pulse * 0.24 * brightness);
     const labelOpacity = state.constellationReveal * (0.52 + pulse * 0.22);
     label.style.opacity = `${labelOpacity}`;
     label.style.display = 'block';
   });
 
   lines.forEach((line, index) => {
+    const lineMorph = smoothstep(THREE.MathUtils.clamp(
+      (graphMorph - line.userData.morphDelay) / (1 - line.userData.morphDelay),
+      0,
+      1,
+    ));
+    if (line.userData.lastMorphFrame !== frameTime) {
+      const primaryPoints = getSceneFourLinePoints(line, lineMorph, stars, 0);
+      updateSceneFourTube(line, primaryPoints);
+      updateSceneFourTube(line.userData.glow, primaryPoints);
+      line.userData.lastMorphFrame = frameTime;
+    }
     const lineDelay = index * 0.075;
     const lineProgress = smoothstep(THREE.MathUtils.clamp(
       (state.lineReveal - lineDelay) / 0.24,
       0,
       1,
     ));
-    line.material.opacity = lineProgress * 0.5;
-    line.userData.glow.material.opacity = lineProgress * 0.2;
+    const lineStrength = line.userData.isLowerShadow
+      ? shadowStrength
+      : line.userData.isUpperTriangle ? 0.62 : 0.5;
+    line.material.opacity = lineProgress * lineStrength;
+    line.userData.glow.material.opacity = lineProgress * lineStrength * 0.4;
   });
   distanceLine.material.opacity = state.distanceReveal * 0.54;
   distanceLabel.style.opacity = `${state.distanceReveal * 0.7}`;
