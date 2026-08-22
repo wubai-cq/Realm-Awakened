@@ -129,9 +129,19 @@ export function getSceneFourState(time) {
   const duration = SCENE_DURATION - SCENE_FOUR_START;
   const progress = Math.min(1, elapsed / duration);
   const constellationReveal = smoothRange(time, SCENE_FOUR_START + 0.28, SCENE_FOUR_START + 2.2);
-  const lineReveal = smoothRange(time, SCENE_FOUR_START + 0.82, SCENE_FOUR_START + 3.2);
+  const lineReveal = time >= SCENE_FOUR_START ? 1 : 0;
+  // The opening keeps both the flat Earth-view graph and the depth graph on
+  // screen. They cross-fade over a dedicated two-second camera transition.
+  const projectionMorph = smoothRange(time, SCENE_FOUR_START + 0.72, SCENE_FOUR_START + 2.72);
+  const flatLineOpacity = 0.78 * (1 - projectionMorph);
+  const depthLineOpacity = 0.24 + 0.76 * projectionMorph;
   const imprintFade = smoothRange(time, SCENE_FOUR_START + 1.25, SCENE_FOUR_START + 4.8);
   const distanceReveal = smoothRange(time, SCENE_FOUR_START + 2.15, SCENE_FOUR_START + 4.1);
+  const parallaxProgress = smoothRange(
+    time,
+    SCENE_FOUR_START + 0.9,
+    SCENE_DURATION - 0.35,
+  );
 
   return {
     active: time >= SCENE_FOUR_START && time <= SCENE_DURATION,
@@ -139,7 +149,13 @@ export function getSceneFourState(time) {
     reveal: smoothRange(time, SCENE_FOUR_START, SCENE_FOUR_START + 0.72),
     constellationReveal,
     lineReveal,
+    projectionMorph,
+    flatLineOpacity,
+    depthLineOpacity,
+    // Kept as a read-only compatibility alias for older UI/tests.
+    auxiliaryMorph: projectionMorph,
     imprintFade,
     distanceReveal,
+    parallaxProgress,
   };
 }

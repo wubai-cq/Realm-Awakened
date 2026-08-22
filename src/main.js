@@ -34,112 +34,114 @@ const FROZEN_WAVE_COLOR = new THREE.Color(0xc4f3d5);
 const waveDisplayColor = new THREE.Color();
 const BOUNDARY_SPIN_RATE = 4.2;
 
-// The fourth-scene constellation is traced from the supplied reference image.
-// Coordinates preserve its node placement and crossing structure in 3D space.
-const ORION_POINTS = {
-  clubTip: [1.39, 3.28, 0.52],
-  upperHub: [-0.72, 2.02, 0.08],
-  upperKnee: [1.06, 2.78, 0.26],
-  upperRight: [1.95, 1.63, -0.08],
-  betelgeuse: [-2.00, 2.10, 0.42],
-  bellatrix: [-2.57, 0.97, -0.28],
-  lowerClubRoot: [-1.97, 1.34, 0.14],
-  beltRight: [1.55, -0.08, 0.18],
-  beltMiddle: [1.22, -0.35, -0.10],
-  beltLeft: [0.79, -0.56, 0.26],
-  lowerJoint: [0.55, -0.99, 0.04],
-  saiph: [-0.90, -3.28, 0.18],
-  lowerGuide: [-0.08, -3.61, -0.12],
-  rigel: [2.55, -2.77, -0.48],
+// Scene four uses the measured 1220 x 896 reference frame as its source of
+// truth. The z values preserve depth while the x/y values remain faithful to
+// the supplied start and end coordinates.
+const ORION_VIEWBOX = { width: 1220, height: 896 };
+const ORION_WORLD_SCALE = 7.2 / ORION_VIEWBOX.height;
+const ORION_VIEWBOX_CENTER = [ORION_VIEWBOX.width / 2, ORION_VIEWBOX.height / 2];
+const ORION_DEPTH = {
+  meissa: 0.56,
+  betelgeuse: 1.42,
+  bellatrix: 2.28,
+  mintaka: -1.55,
+  alnilam: -1.86,
+  alnitak: -1.34,
+  rigel: 0.58,
+  saiph: 0.92,
 };
 
-// Endpoint layout at the end of the supplied transformation video. The
-// semantic nodes stay the same while their positions settle into the final
-// compact Orion silhouette shown in the reference frame.
-const ORION_FINAL_POINTS = {
-  clubTip: [0.18, 3.42, 0.52],
-  // The lower triangle is a translated shadow of the upper triangle. Using
-  // one offset keeps all three corresponding edges parallel at the end.
-  upperHub: [-2.40, 1.96, 0.37],
-  upperKnee: [0.30, 3.26, 0.47],
-  upperRight: [0.94, 1.14, -0.21],
-  betelgeuse: [-2.52, 2.12, 0.42],
-  bellatrix: [1.58, 1.04, -0.28],
-  // Leave a small visible gap before Bellatrix at the final frame.
-  bellatrixApproach: [0.98, 1.20, -0.18],
-  // Separate endpoint for Meissa's descending line; it must not share a vertex.
-  meissaApproach: [0.82, 1.30, -0.16],
-  // Lower ray ends just short of Bellatrix instead of touching its star core.
-  bellatrixLowerApproach: [1.22, 0.47, -0.20],
-  lowerClubRoot: [-2.28, 1.66, 0.14],
-  beltRight: [0.58, -0.54, 0.18],
-  beltMiddle: [0.06, -0.94, -0.10],
-  beltLeft: [-0.46, -1.23, 0.26],
-  lowerJoint: [-0.52, -1.04, 0.04],
-  saiph: [-1.48, -3.30, 0.18],
-  lowerGuide: [-1.22, -3.55, -0.12],
-  rigel: [1.86, -2.96, -0.48],
+function orionViewBoxPoint([x, y], depth) {
+  return [
+    (x - ORION_VIEWBOX_CENTER[0]) * ORION_WORLD_SCALE,
+    (ORION_VIEWBOX_CENTER[1] - y) * ORION_WORLD_SCALE,
+    depth,
+  ];
+}
+
+const ORION_START_COORDS = {
+  betelgeuse: [380, 298],
+  bellatrix: [327, 384],
+  meissa: [612, 205],
+  mintaka: [604, 476],
+  alnilam: [578, 493],
+  alnitak: [558, 529],
+  rigel: [692, 657],
+  saiph: [456, 699],
+};
+
+const ORION_POINTS = {
+  betelgeuse: orionViewBoxPoint(ORION_START_COORDS.betelgeuse, ORION_DEPTH.betelgeuse),
+  bellatrix: orionViewBoxPoint(ORION_START_COORDS.bellatrix, ORION_DEPTH.bellatrix),
+  clubTip: orionViewBoxPoint(ORION_START_COORDS.meissa, ORION_DEPTH.meissa),
+  beltRight: orionViewBoxPoint(ORION_START_COORDS.mintaka, ORION_DEPTH.mintaka),
+  beltMiddle: orionViewBoxPoint(ORION_START_COORDS.alnilam, ORION_DEPTH.alnilam),
+  beltLeft: orionViewBoxPoint(ORION_START_COORDS.alnitak, ORION_DEPTH.alnitak),
+  rigel: orionViewBoxPoint(ORION_START_COORDS.rigel, ORION_DEPTH.rigel),
+  saiph: orionViewBoxPoint(ORION_START_COORDS.saiph, ORION_DEPTH.saiph),
+};
+
+// The flat layer is the same star graph seen from Earth: every point keeps
+// its measured x/y position but shares one depth plane. The depth layer below
+// uses the fixed three-dimensional coordinates in ORION_POINTS.
+const ORION_FLAT_POINTS = {
+  betelgeuse: orionViewBoxPoint(ORION_START_COORDS.betelgeuse, 0.08),
+  bellatrix: orionViewBoxPoint(ORION_START_COORDS.bellatrix, 0.08),
+  clubTip: orionViewBoxPoint(ORION_START_COORDS.meissa, 0.08),
+  beltRight: orionViewBoxPoint(ORION_START_COORDS.mintaka, 0.08),
+  beltMiddle: orionViewBoxPoint(ORION_START_COORDS.alnilam, 0.08),
+  beltLeft: orionViewBoxPoint(ORION_START_COORDS.alnitak, 0.08),
+  rigel: orionViewBoxPoint(ORION_START_COORDS.rigel, 0.08),
+  saiph: orionViewBoxPoint(ORION_START_COORDS.saiph, 0.08),
 };
 
 const ORION_STARS = [
-  { label: '参宿四', latin: 'BETELGEUSE', position: ORION_POINTS.betelgeuse, targetPosition: ORION_FINAL_POINTS.betelgeuse, scale: 0.15, brightness: 1.45, color: 0xffc7a5 },
-  { label: '参宿五', latin: 'BELLATRIX', position: ORION_POINTS.bellatrix, targetPosition: ORION_FINAL_POINTS.bellatrix, scale: 0.13, brightness: 1.45, color: 0xd5e4ff },
-  { label: '猎宿一', latin: 'MEISSA', position: ORION_POINTS.clubTip, targetPosition: ORION_FINAL_POINTS.clubTip, scale: 0.11, brightness: 1.45, color: 0xdde9ff },
-  { label: '参宿三', latin: 'MINTAKA', position: ORION_POINTS.beltRight, targetPosition: ORION_FINAL_POINTS.beltRight, scale: 0.12, color: 0xd9e7ff },
-  { label: '参宿二', latin: 'ALNILAM', position: ORION_POINTS.beltMiddle, targetPosition: ORION_FINAL_POINTS.beltMiddle, scale: 0.13, color: 0xe4efff },
-  { label: '参宿一', latin: 'ALNITAK', position: ORION_POINTS.beltLeft, targetPosition: ORION_FINAL_POINTS.beltLeft, scale: 0.11, color: 0xdde9ff },
-  { label: '参宿六', latin: 'SAIPH', position: ORION_POINTS.saiph, targetPosition: ORION_FINAL_POINTS.saiph, scale: 0.12, color: 0xcbdcff },
-  { label: '参宿七', latin: 'RIGEL', position: ORION_POINTS.rigel, targetPosition: ORION_FINAL_POINTS.rigel, scale: 0.15, color: 0xd7e7ff },
+  { label: '参宿四', latin: 'BETELGEUSE', position: ORION_POINTS.betelgeuse, scale: 0.15, brightness: 1.45, color: 0xffc7a5 },
+  { label: '参宿五', latin: 'BELLATRIX', position: ORION_POINTS.bellatrix, scale: 0.13, brightness: 1.45, color: 0xd5e4ff },
+  { label: '猎宿一', latin: 'MEISSA', position: ORION_POINTS.clubTip, scale: 0.11, brightness: 1.45, color: 0xdde9ff },
+  { label: '参宿三', latin: 'MINTAKA', position: ORION_POINTS.beltRight, scale: 0.12, color: 0xd9e7ff },
+  { label: '参宿二', latin: 'ALNILAM', position: ORION_POINTS.beltMiddle, scale: 0.13, color: 0xe4efff },
+  { label: '参宿一', latin: 'ALNITAK', position: ORION_POINTS.beltLeft, scale: 0.11, color: 0xdde9ff },
+  { label: '参宿七', latin: 'RIGEL', position: ORION_POINTS.rigel, scale: 0.15, color: 0xd7e7ff },
+  { label: '参宿六', latin: 'SAIPH', position: ORION_POINTS.saiph, scale: 0.12, color: 0xcbdcff },
 ];
 
 const ORION_PATHS = [
-  { emphasis: 1.55, points: [ORION_POINTS.betelgeuse, ORION_POINTS.clubTip] },
-  { emphasis: 1.55, points: [ORION_POINTS.lowerClubRoot, ORION_POINTS.clubTip] },
+  { emphasis: 1.55, points: [ORION_POINTS.clubTip, ORION_POINTS.betelgeuse] },
+  { emphasis: 1.55, points: [ORION_POINTS.clubTip, ORION_POINTS.bellatrix] },
   { emphasis: 1.35, points: [ORION_POINTS.betelgeuse, ORION_POINTS.bellatrix] },
-  { emphasis: 1.35, points: [ORION_POINTS.betelgeuse, ORION_POINTS.beltLeft] },
-  { emphasis: 1.45, points: [ORION_POINTS.bellatrix, ORION_POINTS.beltRight] },
-  { emphasis: 1.55, points: [ORION_POINTS.lowerJoint, ORION_POINTS.saiph] },
+  { emphasis: 1.35, points: [ORION_POINTS.betelgeuse, ORION_POINTS.beltRight] },
+  { emphasis: 1.45, points: [ORION_POINTS.bellatrix, ORION_POINTS.beltLeft] },
+  { emphasis: 0.72, points: [ORION_POINTS.beltLeft, ORION_POINTS.beltMiddle] },
+  { emphasis: 0.72, points: [ORION_POINTS.beltMiddle, ORION_POINTS.beltRight] },
+  { emphasis: 1.55, points: [ORION_POINTS.beltLeft, ORION_POINTS.saiph] },
   { emphasis: 1.55, points: [ORION_POINTS.beltRight, ORION_POINTS.rigel] },
-  // Keep the upper-left segment independent from the right-side segment.
-  { emphasis: 0.72, points: [ORION_POINTS.upperHub, ORION_POINTS.upperKnee] },
-  { emphasis: 0.72, points: [ORION_POINTS.upperRight, ORION_POINTS.beltRight] },
-  { emphasis: 0.72, points: [ORION_POINTS.upperKnee, ORION_POINTS.upperRight] },
-  { emphasis: 0.72, points: [ORION_POINTS.upperHub, ORION_POINTS.upperRight] },
-  { emphasis: 0.72, points: [ORION_POINTS.upperHub, ORION_POINTS.lowerJoint] },
-  { emphasis: 0.72, points: [ORION_POINTS.beltRight, ORION_POINTS.beltMiddle, ORION_POINTS.beltLeft, ORION_POINTS.beltRight] },
-  { emphasis: 0.72, points: [ORION_POINTS.beltLeft, ORION_POINTS.lowerJoint, ORION_POINTS.lowerGuide] },
-  { emphasis: 0.72, points: [ORION_POINTS.beltMiddle, ORION_POINTS.rigel] },
 ];
 
-// The upper triangle is the main figure. The existing triangle below it is
-// the shadow itself; no duplicate geometry is created for either layer.
+const ORION_FLAT_PATHS = [
+  { emphasis: 1.55, points: [ORION_FLAT_POINTS.clubTip, ORION_FLAT_POINTS.betelgeuse] },
+  { emphasis: 1.55, points: [ORION_FLAT_POINTS.clubTip, ORION_FLAT_POINTS.bellatrix] },
+  { emphasis: 1.35, points: [ORION_FLAT_POINTS.betelgeuse, ORION_FLAT_POINTS.bellatrix] },
+  { emphasis: 1.35, points: [ORION_FLAT_POINTS.betelgeuse, ORION_FLAT_POINTS.beltRight] },
+  { emphasis: 1.45, points: [ORION_FLAT_POINTS.bellatrix, ORION_FLAT_POINTS.beltLeft] },
+  { emphasis: 0.72, points: [ORION_FLAT_POINTS.beltLeft, ORION_FLAT_POINTS.beltMiddle] },
+  { emphasis: 0.72, points: [ORION_FLAT_POINTS.beltMiddle, ORION_FLAT_POINTS.beltRight] },
+  { emphasis: 1.55, points: [ORION_FLAT_POINTS.beltLeft, ORION_FLAT_POINTS.saiph] },
+  { emphasis: 1.55, points: [ORION_FLAT_POINTS.beltRight, ORION_FLAT_POINTS.rigel] },
+];
+
+// The first three edges form the upper triangle; the last three are the
+// lower legs and crossed belt geometry in the supplied reference.
 const ORION_UPPER_TRIANGLE_PATH_INDICES = new Set([0, 1, 2]);
-const ORION_LOWER_SHADOW_PATH_INDICES = new Set([7, 9, 10]);
+const ORION_LOWER_SHADOW_PATH_INDICES = new Set([5, 6, 7, 8]);
 
-const ORION_FINAL_PATHS = [
-  [ORION_FINAL_POINTS.betelgeuse, ORION_FINAL_POINTS.clubTip],
-  // The descending Meissa segment has its own endpoint, separate from the other line.
-  [ORION_FINAL_POINTS.meissaApproach, ORION_FINAL_POINTS.clubTip],
-  // Aim at Bellatrix but stop before the star, matching the reference gap.
-  [ORION_FINAL_POINTS.betelgeuse, ORION_FINAL_POINTS.bellatrixApproach],
-  [ORION_FINAL_POINTS.betelgeuse, ORION_FINAL_POINTS.beltLeft],
-  [ORION_FINAL_POINTS.bellatrixLowerApproach, ORION_FINAL_POINTS.beltRight],
-  [ORION_FINAL_POINTS.lowerJoint, ORION_FINAL_POINTS.saiph],
-  [ORION_FINAL_POINTS.beltRight, ORION_FINAL_POINTS.rigel],
-  // Lower triangle bottom edge merges with the upper triangle's left edge.
-  [ORION_FINAL_POINTS.betelgeuse, ORION_FINAL_POINTS.clubTip],
-  // Merge this ray with the Bellatrix-to-Mintaka ray at the final frame.
-  [ORION_FINAL_POINTS.bellatrixLowerApproach, ORION_FINAL_POINTS.beltRight],
-  [ORION_FINAL_POINTS.upperKnee, ORION_FINAL_POINTS.upperRight],
-  // Lower triangle middle edge merges with the upper triangle's middle edge.
-  [ORION_FINAL_POINTS.betelgeuse, ORION_FINAL_POINTS.bellatrixApproach],
-  [ORION_FINAL_POINTS.beltRight, ORION_FINAL_POINTS.beltMiddle, ORION_FINAL_POINTS.beltLeft, ORION_FINAL_POINTS.beltRight],
-  [ORION_FINAL_POINTS.beltLeft, ORION_FINAL_POINTS.lowerJoint, ORION_FINAL_POINTS.lowerGuide],
-  [ORION_FINAL_POINTS.beltMiddle, ORION_FINAL_POINTS.rigel],
-];
+const SCENE_FOUR_IMPRINT_TARGET = new THREE.Vector3(-3.35, -0.12, -4.1);
 
 const audio = document.querySelector('#narration');
 const canvas = document.querySelector('#scene');
+const deepSkyRoot = document.querySelector('#deep-sky-background');
+const starCanvas = document.querySelector('#star-canvas');
+const starContext = starCanvas.getContext('2d');
 const labelsRoot = document.querySelector('#labels');
 const subtitleEl = document.querySelector('#subtitle');
 const captionEl = document.querySelector('#caption');
@@ -160,8 +162,8 @@ const waveObservedFrequencyEl = document.querySelector('#wave-fp');
 
 createIcons({ icons: { Play, Pause, RotateCcw } });
 
-const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, powerPreference: 'high-performance' });
-renderer.setClearColor(0x020407, 1);
+const renderer = new THREE.WebGLRenderer({ canvas, alpha: true, antialias: true, powerPreference: 'high-performance' });
+renderer.setClearColor(0x000000, 0);
 renderer.outputColorSpace = THREE.SRGBColorSpace;
 
 const scene = new THREE.Scene();
@@ -277,44 +279,126 @@ function createSceneFourTube(points, radius) {
   return new THREE.TubeGeometry(curve, Math.max(3, points.length * 3), radius, 7, false);
 }
 
-function interpolateSceneFourPoints(startPoints, targetPoints, progress) {
-  return startPoints.map((point, index) => point.clone().lerp(targetPoints[index], progress));
-}
+function createSceneFourDustHazeTexture() {
+  const size = 768;
+  const canvas2d = document.createElement('canvas');
+  canvas2d.width = size;
+  canvas2d.height = size;
+  const ctx = canvas2d.getContext('2d');
+  const randomAt = (index, salt) => {
+    const value = Math.sin(index * 12.9898 + salt * 78.233) * 43758.5453;
+    return value - Math.floor(value);
+  };
 
-function updateSceneFourTube(line, points) {
-  const oldGeometry = line.geometry;
-  line.geometry = createSceneFourTube(points, line.userData.radius);
-  oldGeometry.dispose();
-}
-
-function getSceneFourLinePoints(line, lineMorph, stars, horizontalOffset) {
-  const points = interpolateSceneFourPoints(
-    line.userData.startPoints,
-    line.userData.targetPoints,
-    lineMorph,
-  );
-  points.forEach((point) => {
-    point.x += horizontalOffset;
-  });
-  if (line.userData.anchorStarIndex !== null) {
-    points[line.userData.anchorPointIndex].copy(stars[line.userData.anchorStarIndex].position);
+  ctx.save();
+  ctx.globalCompositeOperation = 'screen';
+  for (let i = 0; i < 72; i += 1) {
+    const t = (i + randomAt(i, 2.3) * 0.8) / 72;
+    const x = size * (0.26 + t * 0.22) + (randomAt(i, 4.1) - 0.5) * 80;
+    const y = size * (0.06 + t * 0.9) + (randomAt(i, 5.8) - 0.5) * 60;
+    const radiusX = 34 + randomAt(i, 7.4) * 100;
+    const radiusY = 55 + randomAt(i, 9.2) * 150;
+    const gradient = ctx.createRadialGradient(x, y, 0, x, y, Math.max(radiusX, radiusY));
+    const alpha = 0.018 + randomAt(i, 11.6) * 0.038;
+    gradient.addColorStop(0, `rgba(142, 140, 143, ${alpha})`);
+    gradient.addColorStop(0.48, `rgba(127, 125, 131, ${alpha * 0.46})`);
+    gradient.addColorStop(1, 'rgba(106, 104, 108, 0)');
+    ctx.save();
+    ctx.translate(x, y);
+    ctx.rotate((randomAt(i, 13.7) - 0.5) * 0.9);
+    ctx.scale(radiusX / radiusY, 1);
+    ctx.translate(-x, -y);
+    ctx.fillStyle = gradient;
+    ctx.fillRect(x - radiusY, y - radiusY, radiusY * 2, radiusY * 2);
+    ctx.restore();
   }
-  if (line.userData.bellatrixRay) {
-    const bellatrixPosition = stars[1].position;
-    const bellatrixGap = THREE.MathUtils.lerp(
-      line.userData.bellatrixRay.startGap,
-      line.userData.bellatrixRay.gap,
-      lineMorph,
+
+  ctx.filter = 'blur(10px)';
+  for (let i = 0; i < 28; i += 1) {
+    const t = (i + 0.4) / 28;
+    const x = size * (0.21 + t * 0.27);
+    const y = size * (0.08 + t * 0.87);
+    ctx.beginPath();
+    ctx.moveTo(x - 44, y - 80);
+    ctx.quadraticCurveTo(
+      x + (Math.sin(i * 1.7) * 48),
+      y - 20,
+      x + (Math.cos(i * 1.2) * 34),
+      y + 96,
     );
-    const bellatrixDirection = points[line.userData.bellatrixRay.sourceIndex]
-      .clone()
-      .sub(bellatrixPosition)
-      .normalize();
-    points[line.userData.bellatrixRay.endpointIndex]
-      .copy(bellatrixPosition)
-      .addScaledVector(bellatrixDirection, bellatrixGap);
+    ctx.strokeStyle = `rgba(134, 132, 136, ${0.018 + (i % 4) * 0.006})`;
+    ctx.lineWidth = 3 + (i % 5) * 2;
+    ctx.stroke();
   }
-  return points;
+  ctx.restore();
+
+  const texture = new THREE.CanvasTexture(canvas2d);
+  texture.colorSpace = THREE.SRGBColorSpace;
+  return texture;
+}
+
+function createSceneFourDustBand() {
+  const group = new THREE.Group();
+  group.renderOrder = -2;
+
+  const haze = new THREE.Sprite(new THREE.SpriteMaterial({
+    map: createSceneFourDustHazeTexture(),
+    transparent: true,
+    opacity: 0.22,
+    depthTest: false,
+    depthWrite: false,
+    blending: THREE.NormalBlending,
+  }));
+  haze.position.set(-3.35, -0.12, -4.45);
+  haze.scale.set(3.4, 8.1, 1);
+  haze.rotation.z = -0.18;
+  haze.renderOrder = -3;
+  group.add(haze);
+
+  return group;
+}
+
+function createSceneFourLineLayer(pathDefinitions, layerName, group) {
+  return pathDefinitions.map(({ points: pathPoints, emphasis }, index) => {
+    const startPoints = pathPoints.map((point) => new THREE.Vector3(...point));
+    const isLowerShadow = ORION_LOWER_SHADOW_PATH_INDICES.has(index);
+    const material = new THREE.MeshBasicMaterial({
+      color: layerName === 'flat'
+        ? (isLowerShadow ? 0x4a5870 : 0x6d7892)
+        : (isLowerShadow ? 0x7186a4 : 0xb8cbed),
+      transparent: true,
+      opacity: 0,
+      depthWrite: false,
+      blending: THREE.AdditiveBlending,
+    });
+    const line = new THREE.Mesh(
+      createSceneFourTube(startPoints, 0.014 * emphasis),
+      material,
+    );
+    const glow = new THREE.Mesh(
+      createSceneFourTube(startPoints, 0.05 * emphasis),
+      new THREE.MeshBasicMaterial({
+        color: layerName === 'flat'
+          ? (isLowerShadow ? 0x2f394c : 0x465570)
+          : (isLowerShadow ? 0x3e536f : 0x6d8db9),
+        transparent: true,
+        opacity: 0,
+        depthWrite: false,
+        blending: THREE.AdditiveBlending,
+      }),
+    );
+    line.userData = {
+      index,
+      glow,
+      isUpperTriangle: ORION_UPPER_TRIANGLE_PATH_INDICES.has(index),
+      isLowerShadow,
+      layerName,
+    };
+    glow.userData.radius = 0.05 * emphasis;
+    group.add(glow);
+    group.add(line);
+    return line;
+  });
 }
 
 function createSceneFourField(texture, labelsRoot) {
@@ -347,35 +431,8 @@ function createSceneFourField(texture, labelsRoot) {
   }));
   group.add(backdrop);
 
-  const cloudPositions = [];
-  const cloudColors = [];
-  for (let i = 0; i < 1250; i += 1) {
-    const u = ((i * 71) % 1250) / 1250;
-    const v = ((i * 193) % 1250) / 1250;
-    const w = ((i * 431) % 1250) / 1250;
-    const vertical = (u - 0.5) * 5.6;
-    const width = (0.22 + v * 0.78) * (1 - Math.abs(vertical) / 3.2);
-    const x = -4.7 + (w - 0.5) * width * 1.8 + Math.sin(i * 0.19) * 0.18;
-    const y = vertical + Math.sin(i * 0.11) * 0.18;
-    const z = -2.35 + (v - 0.5) * 1.5 + Math.cos(i * 0.07) * 0.38;
-    const brightness = 0.12 + (1 - Math.abs(vertical) / 3.2) * 0.2 + w * 0.08;
-    cloudPositions.push(x, y, z);
-    cloudColors.push(brightness * 0.7, brightness * 0.76, brightness * 0.9);
-  }
-  const cloudGeometry = new THREE.BufferGeometry();
-  cloudGeometry.setAttribute('position', new THREE.Float32BufferAttribute(cloudPositions, 3));
-  cloudGeometry.setAttribute('color', new THREE.Float32BufferAttribute(cloudColors, 3));
-  const cloud = new THREE.Points(cloudGeometry, new THREE.PointsMaterial({
-    map: texture,
-    size: 0.34,
-    vertexColors: true,
-    transparent: true,
-    opacity: 0,
-    depthWrite: false,
-    blending: THREE.AdditiveBlending,
-    sizeAttenuation: true,
-  }));
-  group.add(cloud);
+  const dustBand = createSceneFourDustBand();
+  group.add(dustBand);
 
   const stars = ORION_STARS.map((definition, index) => {
     const star = new THREE.Group();
@@ -406,9 +463,6 @@ function createSceneFourField(texture, labelsRoot) {
       core,
       phase: index * 0.73,
       startPosition: new THREE.Vector3(...definition.position),
-      targetPosition: new THREE.Vector3(...definition.targetPosition),
-      graphPosition: new THREE.Vector3(...definition.position),
-      morphDelay: index * 0.018,
     };
     group.add(star);
 
@@ -420,72 +474,13 @@ function createSceneFourField(texture, labelsRoot) {
     return star;
   });
 
-  const lines = ORION_PATHS.map(({ points: pathPoints, emphasis }, index) => {
-    const startPoints = pathPoints.map((point) => new THREE.Vector3(...point));
-    const targetPoints = ORION_FINAL_PATHS[index].map((point) => new THREE.Vector3(...point));
-    const bellatrixEndpointIndex = index === 1 ? 0 : index === 2 ? 1 : index === 4 ? 0 : null;
-    const bellatrixRay = bellatrixEndpointIndex === null
-      ? null
-      : (() => {
-        const bellatrixStart = new THREE.Vector3(...ORION_POINTS.bellatrix);
-        const bellatrixTarget = new THREE.Vector3(...ORION_FINAL_POINTS.bellatrix);
-        const endpointStart = startPoints[bellatrixEndpointIndex];
-        const endpointTarget = targetPoints[bellatrixEndpointIndex];
-        return {
-          endpointIndex: bellatrixEndpointIndex,
-          sourceIndex: bellatrixEndpointIndex === 0 ? 1 : 0,
-          startGap: endpointStart.distanceTo(bellatrixStart),
-          gap: endpointTarget.distanceTo(bellatrixTarget),
-        };
-      })();
-    const isLowerShadow = ORION_LOWER_SHADOW_PATH_INDICES.has(index);
-    const material = new THREE.MeshBasicMaterial({
-      color: isLowerShadow ? 0x7186a4 : 0xb8cbed,
-      transparent: true,
-      opacity: 0,
-      depthWrite: false,
-      blending: THREE.AdditiveBlending,
-    });
-    const line = new THREE.Mesh(
-      createSceneFourTube(startPoints, 0.014 * emphasis),
-      material,
-    );
-    const glow = new THREE.Mesh(
-      createSceneFourTube(startPoints, 0.05 * emphasis),
-      new THREE.MeshBasicMaterial({
-        color: isLowerShadow ? 0x3e536f : 0x6d8db9,
-        transparent: true,
-        opacity: 0,
-        depthWrite: false,
-        blending: THREE.AdditiveBlending,
-      }),
-    );
-    line.userData = {
-      index,
-      glow,
-      isUpperTriangle: ORION_UPPER_TRIANGLE_PATH_INDICES.has(index),
-      isLowerShadow,
-      startPoints,
-      targetPoints,
-      bellatrixRay,
-      anchorStarIndex: index < 2 ? 2 : null,
-      anchorPointIndex: index < 2 ? 1 : null,
-      radius: 0.014 * emphasis,
-      glowRadius: 0.05 * emphasis,
-      morphDelay: index * 0.014,
-      lastMorphFrame: -1,
-    };
-    glow.userData.radius = 0.05 * emphasis;
-    group.add(glow);
-    group.add(line);
-    return line;
-  });
+  const flatLines = createSceneFourLineLayer(ORION_FLAT_PATHS, 'flat', group);
+  const depthLines = createSceneFourLineLayer(ORION_PATHS, 'depth', group);
 
   const distanceFrom = ORION_STARS[3].position;
-  const distanceTo = [0.2, -0.38, -0.02];
   const distanceGeometry = new THREE.BufferGeometry().setFromPoints([
     new THREE.Vector3(...distanceFrom),
-    new THREE.Vector3(...distanceTo),
+    SCENE_FOUR_IMPRINT_TARGET,
   ]);
   const distanceMaterial = new THREE.LineDashedMaterial({
     color: 0x8ed9b4,
@@ -500,7 +495,7 @@ function createSceneFourField(texture, labelsRoot) {
   distanceLine.computeLineDistances();
   group.add(distanceLine);
   const distanceAnchor = new THREE.Object3D();
-  distanceAnchor.position.copy(new THREE.Vector3(...distanceFrom).lerp(new THREE.Vector3(...distanceTo), 0.52));
+  distanceAnchor.position.copy(new THREE.Vector3(...distanceFrom).lerp(SCENE_FOUR_IMPRINT_TARGET, 0.52));
   group.add(distanceAnchor);
   const distanceLabel = document.createElement('div');
   distanceLabel.className = 'node-label scene-four-distance';
@@ -546,15 +541,15 @@ function createSceneFourField(texture, labelsRoot) {
     return ring;
   });
   imprint.add(imprintHalo, imprintCore);
-  imprint.position.set(0.2, -0.38, -0.02);
+  imprint.position.copy(SCENE_FOUR_IMPRINT_TARGET);
   group.add(imprint);
 
   return {
     group,
     backdrop,
-    cloud,
     stars,
-    lines,
+    flatLines,
+    depthLines,
     distanceLine,
     distanceAnchor,
     distanceLabel,
@@ -562,7 +557,7 @@ function createSceneFourField(texture, labelsRoot) {
     imprintHalo,
     imprintCore,
     imprintRings,
-    imprintTarget: new THREE.Vector3(0.2, -0.38, -0.02),
+    imprintTarget: SCENE_FOUR_IMPRINT_TARGET.clone(),
   };
 }
 
@@ -1993,14 +1988,17 @@ function updateSceneThreeCamera(frameTime, storyTime, cameraPush, recombination,
 function updateSceneFourCamera(frameTime, state, boundaryField) {
   const sphereCenter = boundaryField.lobes[0].getWorldPosition(new THREE.Vector3());
   const startPosition = sphereCenter.clone().add(new THREE.Vector3(0, 2.15, 6.9));
-  const widePosition = new THREE.Vector3(0, 0.38, 13.4);
-  const wideTarget = new THREE.Vector3(0, 0.02, 0);
+  const leftObserver = new THREE.Vector3(-3.6, 0.48, 12.5);
+  const rightObserver = new THREE.Vector3(3.6, 0.48, 12.5);
+  const leftTarget = new THREE.Vector3(-0.18, 0.02, 0);
+  const rightTarget = new THREE.Vector3(0.24, 0.02, 0);
   const reveal = state.active
     ? smoothstep(THREE.MathUtils.clamp((frameTime - SCENE_FOUR_START) / 1.8, 0, 1))
     : 0;
-  camera.position.copy(startPosition).lerp(widePosition, reveal);
-  camera.position.x += Math.sin(Math.max(0, frameTime - SCENE_FOUR_START) * 0.42) * 0.16 * reveal;
-  camera.lookAt(sphereCenter.clone().lerp(wideTarget, reveal));
+  const observer = leftObserver.clone().lerp(rightObserver, state.parallaxProgress ?? 0);
+  const target = leftTarget.clone().lerp(rightTarget, state.parallaxProgress ?? 0);
+  camera.position.copy(startPosition).lerp(observer, reveal);
+  camera.lookAt(sphereCenter.clone().lerp(target, reveal));
 }
 
 function updateSceneThreeWave(state) {
@@ -2106,10 +2104,11 @@ function updateSceneFour(field, state, frameTime, boundaryField) {
   const {
     group,
     backdrop,
-    cloud,
     stars,
-    lines,
+    flatLines,
+    depthLines,
     distanceLine,
+    distanceAnchor,
     distanceLabel,
     imprint,
     imprintHalo,
@@ -2129,28 +2128,11 @@ function updateSceneFour(field, state, frameTime, boundaryField) {
   }
 
   group.visible = true;
-  const depthReveal = smoothstep(THREE.MathUtils.clamp(
-    (frameTime - SCENE_FOUR_START) / 1.35,
-    0,
-    1,
-  ));
   const sceneFourElapsed = Math.max(0, frameTime - SCENE_FOUR_START);
-  const graphMorph = smoothstep(THREE.MathUtils.clamp(
-    sceneFourElapsed / (SCENE_DURATION - SCENE_FOUR_START),
-    0,
-    1,
-  ));
-  const layerMerge = smoothstep(THREE.MathUtils.clamp(
-    (sceneFourElapsed - 0.48) / (SCENE_DURATION - SCENE_FOUR_START - 0.48),
-    0,
-    1,
-  ));
-  const shadowStrength = THREE.MathUtils.lerp(0.3, 0.16, layerMerge);
-  group.rotation.x = depthReveal * (0.06 + Math.sin(sceneFourElapsed * 0.32) * 0.04);
-  group.rotation.y = depthReveal * (-0.12 + Math.sin(sceneFourElapsed * 0.24) * 0.08);
-  group.rotation.z = depthReveal * Math.sin(sceneFourElapsed * 0.18) * 0.025;
+  // The stars and the realistic Orion skeleton stay in one world frame. The
+  // camera movement below is independent from the line animation.
+  group.rotation.set(0.05, -0.12, 0);
   backdrop.material.opacity = state.reveal * 0.68;
-  cloud.material.opacity = state.reveal * (0.34 + Math.sin(sceneFourElapsed * 0.24) * 0.035);
   const sphereCenter = boundaryField.lobes[0].getWorldPosition(new THREE.Vector3());
   const imprintMove = smoothstep(THREE.MathUtils.clamp(
     (frameTime - SCENE_FOUR_START) / 1.05,
@@ -2160,25 +2142,16 @@ function updateSceneFour(field, state, frameTime, boundaryField) {
   imprint.position.copy(sphereCenter).lerp(imprintTarget, imprintMove);
   imprint.rotation.z = Math.sin((frameTime - SCENE_FOUR_START) * 0.7) * 0.08;
 
-  stars.forEach((star, index) => {
+  stars.forEach((star) => {
     const {
       halo,
       core,
       phase,
       label,
       startPosition,
-      targetPosition,
-      graphPosition,
-      morphDelay,
     } = star.userData;
     const brightness = star.userData.definition.brightness ?? 1;
-    const nodeMorph = smoothstep(THREE.MathUtils.clamp(
-      (graphMorph - morphDelay) / (1 - morphDelay),
-      0,
-      1,
-    ));
-    graphPosition.lerpVectors(startPosition, targetPosition, nodeMorph);
-    star.position.copy(graphPosition);
+    star.position.copy(startPosition);
     const pulse = 0.9 + Math.sin(frameTime * 1.6 + phase) * 0.1;
     core.material.opacity = Math.min(1, state.constellationReveal * pulse * 0.92 * brightness);
     halo.material.opacity = Math.min(1, state.constellationReveal * pulse * 0.24 * brightness);
@@ -2187,30 +2160,24 @@ function updateSceneFour(field, state, frameTime, boundaryField) {
     label.style.display = 'block';
   });
 
-  lines.forEach((line, index) => {
-    const lineMorph = smoothstep(THREE.MathUtils.clamp(
-      (graphMorph - line.userData.morphDelay) / (1 - line.userData.morphDelay),
-      0,
-      1,
-    ));
-    if (line.userData.lastMorphFrame !== frameTime) {
-      const primaryPoints = getSceneFourLinePoints(line, lineMorph, stars, 0);
-      updateSceneFourTube(line, primaryPoints);
-      updateSceneFourTube(line.userData.glow, primaryPoints);
-      line.userData.lastMorphFrame = frameTime;
-    }
+  const distanceStart = stars[3].position;
+  distanceLine.geometry.setFromPoints([distanceStart, imprint.position]);
+  distanceLine.computeLineDistances();
+  distanceAnchor.position.copy(distanceStart).lerp(imprint.position, 0.52);
+
+  const updateLineLayer = (layerLines, layerOpacity) => layerLines.forEach((line, index) => {
     const lineDelay = index * 0.075;
     const lineProgress = smoothstep(THREE.MathUtils.clamp(
       (state.lineReveal - lineDelay) / 0.24,
       0,
       1,
     ));
-    const lineStrength = line.userData.isLowerShadow
-      ? shadowStrength
-      : line.userData.isUpperTriangle ? 0.62 : 0.5;
-    line.material.opacity = lineProgress * lineStrength;
-    line.userData.glow.material.opacity = lineProgress * lineStrength * 0.4;
+    const lineStrength = line.userData.isUpperTriangle ? 0.62 : 0.5;
+    line.material.opacity = lineProgress * lineStrength * layerOpacity;
+    line.userData.glow.material.opacity = lineProgress * lineStrength * layerOpacity * 0.4;
   });
+  updateLineLayer(flatLines, state.flatLineOpacity);
+  updateLineLayer(depthLines, state.depthLineOpacity);
   distanceLine.material.opacity = state.distanceReveal * 0.54;
   distanceLabel.style.opacity = `${state.distanceReveal * 0.7}`;
   distanceLabel.style.display = 'block';
@@ -2266,6 +2233,7 @@ function updateScene(time, motionTime = time) {
   const sceneFourRenderState = sceneFourVisible
     ? sceneFour
     : { ...sceneFour, active: false };
+  deepSkyRoot.style.opacity = sceneFourVisible ? `${sceneFourRenderState.reveal}` : '0';
   const storyTime = frameTime >= SCENE_ONE_END ? recombination.waveTime : frameTime;
   const sceneThreeTransition = THREE.MathUtils.smoothstep(frameTime, SCENE_TWO_END, SCENE_TWO_END + 0.76);
   const oldFieldVisibility = 1 - sceneThreeTransition;
@@ -2437,6 +2405,56 @@ function smoothstep(value) {
   return value * value * (3 - 2 * value);
 }
 
+function seededBackgroundRandom(seed) {
+  let state = seed >>> 0;
+  return () => {
+    state = (state * 1664525 + 1013904223) >>> 0;
+    return state / 4294967296;
+  };
+}
+
+const backgroundStars = (() => {
+  const random = seededBackgroundRandom(20260822);
+  return Array.from({ length: 230 }, () => ({
+    x: random(),
+    y: random(),
+    r: random() * 1.1 + 0.15,
+    alpha: random() * 0.53 + 0.12,
+  }));
+})();
+
+function drawDeepSky() {
+  const width = starCanvas.clientWidth;
+  const height = starCanvas.clientHeight;
+  if (!width || !height) return;
+  const pixelRatio = Math.min(window.devicePixelRatio || 1, 2);
+  starCanvas.width = Math.round(width * pixelRatio);
+  starCanvas.height = Math.round(height * pixelRatio);
+  starContext.setTransform(pixelRatio, 0, 0, pixelRatio, 0, 0);
+  starContext.clearRect(0, 0, width, height);
+
+  const gradient = starContext.createRadialGradient(
+    width * 0.54,
+    height * 0.47,
+    0,
+    width * 0.54,
+    height * 0.47,
+    Math.max(width, height) * 0.75,
+  );
+  gradient.addColorStop(0, 'rgba(22, 22, 27, .20)');
+  gradient.addColorStop(0.58, 'rgba(5, 6, 9, .16)');
+  gradient.addColorStop(1, 'rgba(2, 3, 5, .72)');
+  starContext.fillStyle = gradient;
+  starContext.fillRect(0, 0, width, height);
+
+  backgroundStars.forEach((star) => {
+    starContext.beginPath();
+    starContext.fillStyle = `rgba(220, 218, 211, ${star.alpha})`;
+    starContext.arc(star.x * width, star.y * height, star.r, 0, Math.PI * 2);
+    starContext.fill();
+  });
+}
+
 function formatTime(seconds) {
   return `00:${seconds.toFixed(2).padStart(5, '0')}`;
 }
@@ -2449,6 +2467,7 @@ function resize() {
   renderer.setSize(width, height, false);
   camera.aspect = width / height;
   camera.updateProjectionMatrix();
+  drawDeepSky();
 }
 
 function setPlaying(playing) {

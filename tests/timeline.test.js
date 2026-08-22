@@ -133,10 +133,41 @@ describe('plasma focus and wave motion', () => {
     const reveal = getSceneFourState(SCENE_FOUR_START + 1.4);
     const lastFrame = getSceneFourState(SCENE_DURATION);
 
-    expect(firstFrame).toMatchObject({ active: true, progress: 0, reveal: 0 });
+    expect(firstFrame).toMatchObject({
+      active: true,
+      progress: 0,
+      reveal: 0,
+      lineReveal: 1,
+      projectionMorph: 0,
+    });
+    expect(firstFrame.flatLineOpacity).toBeGreaterThan(0);
+    expect(firstFrame.depthLineOpacity).toBeGreaterThan(0);
     expect(reveal.constellationReveal).toBeGreaterThan(0);
     expect(reveal.lineReveal).toBeGreaterThan(0);
-    expect(lastFrame).toMatchObject({ active: true, progress: 1, imprintFade: 1, distanceReveal: 1 });
+    expect(reveal.projectionMorph).toBeGreaterThan(0);
+    expect(reveal.projectionMorph).toBeLessThan(1);
+    expect(reveal.flatLineOpacity).toBeLessThan(firstFrame.flatLineOpacity);
+    expect(reveal.depthLineOpacity).toBeGreaterThan(firstFrame.depthLineOpacity);
+    expect(lastFrame).toMatchObject({
+      active: true,
+      progress: 1,
+      imprintFade: 1,
+      distanceReveal: 1,
+      projectionMorph: 1,
+      flatLineOpacity: 0,
+      depthLineOpacity: 1,
+    });
+  });
+
+  it('moves the scene-four observation point from left to right after the opening reveal', () => {
+    const firstFrame = getSceneFourState(SCENE_FOUR_START + 0.85);
+    const middleFrame = getSceneFourState((SCENE_FOUR_START + SCENE_DURATION) / 2);
+    const lastFrame = getSceneFourState(SCENE_DURATION);
+
+    expect(firstFrame.parallaxProgress).toBe(0);
+    expect(middleFrame.parallaxProgress).toBeGreaterThan(0);
+    expect(middleFrame.parallaxProgress).toBeLessThan(1);
+    expect(lastFrame.parallaxProgress).toBe(1);
   });
 
   it('reveals a sparse label subset that jumps on the next beat', () => {
