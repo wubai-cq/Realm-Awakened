@@ -50,8 +50,9 @@ const ORION_DATA = {
 };
 const ORION_CAMERA_DISTANCE = 12.5;
 const ORION_SCREEN_DEPTH = 8.6;
-const ORION_NEAR_DEPTH = 2.28;
-const ORION_FAR_DEPTH = -1.86;
+const SCENE_FOUR_STAR_BRIGHTNESS = 0.5;
+const SCENE_FOUR_BELT_STAR_BRIGHTNESS = 0.65;
+const SCENE_FOUR_LINE_RADIUS = 0.006;
 const ORION_GROUP_ROTATION = new THREE.Euler(0.05, -0.12, 0);
 const ORION_GROUP_INVERSE_ROTATION = new THREE.Quaternion()
   .setFromEuler(ORION_GROUP_ROTATION)
@@ -85,22 +86,14 @@ const ORION_REFERENCE_FRAME = (() => {
   return { forward, right, up, pivotLy, minDistanceLy: distances[0], maxDistanceLy: distances[distances.length - 1] };
 })();
 
-function orionDepth(star) {
-  const frame = ORION_REFERENCE_FRAME;
-  const progress = (star.distanceLy - frame.minDistanceLy) / (frame.maxDistanceLy - frame.minDistanceLy);
-  return THREE.MathUtils.lerp(ORION_NEAR_DEPTH, ORION_FAR_DEPTH, progress);
-}
-
-function orionProjectedPoint(star) {
+function orionWorldPoint(star) {
   const direction = orionDirection(star);
   const frame = ORION_REFERENCE_FRAME;
-  const forwardDepth = Math.max(0.15, direction.dot(frame.forward));
-  const depth = orionDepth(star);
-  const cameraPlaneDistance = ORION_CAMERA_DISTANCE - depth;
+  const distance = star.distanceLy * (ORION_CAMERA_DISTANCE / frame.pivotLy);
   const point = new THREE.Vector3(
-    direction.dot(frame.right) / forwardDepth * cameraPlaneDistance,
-    direction.dot(frame.up) / forwardDepth * cameraPlaneDistance,
-    depth,
+    direction.dot(frame.right) * distance,
+    direction.dot(frame.up) * distance,
+    ORION_CAMERA_DISTANCE - direction.dot(frame.forward) * distance,
   );
   return point.applyQuaternion(ORION_GROUP_INVERSE_ROTATION).toArray();
 }
@@ -117,20 +110,20 @@ function orionScreenPoint(star) {
 }
 
 const ORION_POINTS = {
-  betelgeuse: orionProjectedPoint(ORION_DATA.betelgeuse),
-  bellatrix: orionProjectedPoint(ORION_DATA.bellatrix),
-  clubTip: orionProjectedPoint(ORION_DATA.meissa),
-  beltRight: orionProjectedPoint(ORION_DATA.mintaka),
-  beltMiddle: orionProjectedPoint(ORION_DATA.alnilam),
-  beltLeft: orionProjectedPoint(ORION_DATA.alnitak),
-  rigel: orionProjectedPoint(ORION_DATA.rigel),
-  saiph: orionProjectedPoint(ORION_DATA.saiph),
+  betelgeuse: orionWorldPoint(ORION_DATA.betelgeuse),
+  bellatrix: orionWorldPoint(ORION_DATA.bellatrix),
+  clubTip: orionWorldPoint(ORION_DATA.meissa),
+  beltRight: orionWorldPoint(ORION_DATA.mintaka),
+  beltMiddle: orionWorldPoint(ORION_DATA.alnilam),
+  beltLeft: orionWorldPoint(ORION_DATA.alnitak),
+  rigel: orionWorldPoint(ORION_DATA.rigel),
+  saiph: orionWorldPoint(ORION_DATA.saiph),
 };
 
 // The auxiliary skeleton is the reference project's camera-locked projection.
 const ORION_FLAT_POINTS = {
   betelgeuse: orionScreenPoint(ORION_DATA.betelgeuse),
-  bellatrix: orionScreenPoint(ORION_DATA.bellatrix),
+  bellatrix: [0.3623692852, 0.9025956076, -ORION_SCREEN_DEPTH],
   clubTip: orionScreenPoint(ORION_DATA.meissa),
   beltRight: orionScreenPoint(ORION_DATA.mintaka),
   beltMiddle: orionScreenPoint(ORION_DATA.alnilam),
@@ -146,7 +139,7 @@ const ORION_STARS = [
   { label: '参宿三', latin: 'MINTAKA', position: ORION_POINTS.beltRight, scale: 0.16, brightness: 1.45, color: 0xd9e7ff },
   { label: '参宿二', latin: 'ALNILAM', position: ORION_POINTS.beltMiddle, scale: 0.17, brightness: 1.5, color: 0xe4efff },
   { label: '参宿一', latin: 'ALNITAK', position: ORION_POINTS.beltLeft, scale: 0.16, brightness: 1.45, color: 0xdde9ff },
-  { label: '参宿七', latin: 'RIGEL', position: ORION_POINTS.rigel, scale: 0.22, brightness: 1.6, color: 0xcbe2ff },
+  { label: '参宿七', latin: 'RIGEL', position: ORION_POINTS.rigel, scale: 0.22, brightness: 1.6, color: 0xe8d6a7 },
   { label: '参宿六', latin: 'SAIPH', position: ORION_POINTS.saiph, scale: 0.16, brightness: 1.45, color: 0xcbdcff },
 ];
 
@@ -174,8 +167,8 @@ const ORION_FLAT_PATHS = [
   { emphasis: 1.55, points: [ORION_FLAT_POINTS.clubTip, ORION_FLAT_POINTS.bellatrix] },
 ];
 
-const ORION_UPPER_TRIANGLE_PATH_INDICES = new Set([0, 7, 8]);
-const ORION_LOWER_SHADOW_PATH_INDICES = new Set([3, 4, 5, 6]);
+const ORION_UPPER_TRIANGLE_PATH_INDICES = new Set([0, 1, 2]);
+const ORION_LOWER_SHADOW_PATH_INDICES = new Set([5, 6, 7, 8]);
 
 const SCENE_FOUR_IMPRINT_TARGET = new THREE.Vector3(-3.35, -0.12, -4.1);
 
@@ -393,12 +386,34 @@ async function loadReferenceCosmicWeb() {
   }
 }
 
-function createSceneFourTube(points, radius) {
+function createSceneFourTube(points, radius, cameraPosition = null) {
   const curve = new THREE.CurvePath();
   for (let pointIndex = 1; pointIndex < points.length; pointIndex += 1) {
     curve.add(new THREE.LineCurve3(points[pointIndex - 1], points[pointIndex]));
   }
-  return new THREE.TubeGeometry(curve, Math.max(3, points.length * 3), radius, 7, false);
+  const tubularSegments = Math.max(3, points.length * 3);
+  const radialSegments = 7;
+  const geometry = new THREE.TubeGeometry(curve, tubularSegments, radius, radialSegments, false);
+  if (!cameraPosition) return geometry;
+
+  const position = geometry.getAttribute('position');
+  const ringCenter = new THREE.Vector3();
+  const vertex = new THREE.Vector3();
+  for (let ringIndex = 0; ringIndex <= tubularSegments; ringIndex += 1) {
+    curve.getPointAt(ringIndex / tubularSegments, ringCenter);
+    const perspectiveScale = sceneFourPerspectiveScale(ringCenter, cameraPosition);
+    for (let radialIndex = 0; radialIndex <= radialSegments; radialIndex += 1) {
+      const vertexIndex = ringIndex * (radialSegments + 1) + radialIndex;
+      vertex.fromBufferAttribute(position, vertexIndex)
+        .sub(ringCenter)
+        .multiplyScalar(perspectiveScale)
+        .add(ringCenter);
+      position.setXYZ(vertexIndex, vertex.x, vertex.y, vertex.z);
+    }
+  }
+  position.needsUpdate = true;
+  geometry.computeBoundingSphere();
+  return geometry;
 }
 
 function createSceneFourDustHazeTexture() {
@@ -624,32 +639,17 @@ function createSceneFourLineLayer(pathDefinitions, layerName, group) {
       blending: THREE.AdditiveBlending,
     });
     const line = new THREE.Mesh(
-      createSceneFourTube(startPoints, 0.014 * emphasis),
+      createSceneFourTube(startPoints, SCENE_FOUR_LINE_RADIUS * emphasis),
       material,
-    );
-    const glow = new THREE.Mesh(
-      createSceneFourTube(startPoints, 0.05 * emphasis),
-      new THREE.MeshBasicMaterial({
-        color: layerName === 'flat'
-          ? (isLowerShadow ? 0x2f394c : 0x465570)
-          : (isLowerShadow ? 0x3e536f : 0x6d8db9),
-        transparent: true,
-        opacity: 0,
-        depthWrite: false,
-        blending: THREE.AdditiveBlending,
-      }),
     );
     line.userData = {
       index,
-      glow,
       isUpperTriangle: ORION_UPPER_TRIANGLE_PATH_INDICES.has(index),
       isLowerShadow,
       layerName,
       pathPoints,
       emphasis,
     };
-    glow.userData.radius = 0.05 * emphasis;
-    group.add(glow);
     group.add(line);
     return line;
   });
@@ -763,7 +763,7 @@ function createSceneFourField(texture, labelsRoot, screenGroup) {
   const flatLines = createSceneFourLineLayer(ORION_FLAT_PATHS, 'flat', screenGroup);
   const depthLines = createSceneFourLineLayer(ORION_PATHS, 'depth', group);
 
-  const distanceFrom = ORION_STARS[3].position;
+  const distanceFrom = ORION_STARS[4].position;
   const distanceGeometry = new THREE.BufferGeometry().setFromPoints([
     new THREE.Vector3(...distanceFrom),
     SCENE_FOUR_IMPRINT_TARGET,
@@ -2287,6 +2287,11 @@ function computeSceneFourCameraOrbit(offsetLy) {
   );
 }
 
+function sceneFourPerspectiveScale(localPoint, cameraPosition) {
+  const worldPoint = localPoint.clone().applyEuler(ORION_GROUP_ROTATION);
+  return cameraPosition.distanceTo(worldPoint) / ORION_CAMERA_DISTANCE;
+}
+
 function updateSceneFourCamera(_frameTime, state, _boundaryField) {
   const offsetLy = state.viewOffsetLy
     ?? THREE.MathUtils.lerp(SCENE_FOUR_START_OFFSET_LY, SCENE_FOUR_END_OFFSET_LY, state.parallaxProgress ?? 0);
@@ -2391,10 +2396,11 @@ function updateSceneThreeWave(state) {
   waveDisplayColor.copy(WAVE_BASE_COLOR).lerp(FROZEN_WAVE_COLOR, state.freeze);
   wave.group.userData.core.material.color.copy(waveDisplayColor);
   wave.group.userData.core.material.depthTest = false;
-  wave.group.userData.core.material.opacity = state.coreStrength * (0.9 + impactFlash * 0.1);
+  wave.group.userData.core.material.opacity = state.coreStrength
+    * (THREE.MathUtils.lerp(0.9, 0.56, state.freeze) + impactFlash * 0.1);
   wave.group.userData.frozenCoreBoost.scale.copy(wave.group.userData.core.scale);
   wave.group.userData.frozenCoreBoost.material.color.copy(FROZEN_WAVE_COLOR);
-  wave.group.userData.frozenCoreBoost.material.opacity = state.freeze * 0.82;
+  wave.group.userData.frozenCoreBoost.material.opacity = state.freeze * 0.3;
 }
 
 function updateSceneFour(field, state, frameTime, boundaryField) {
@@ -2435,6 +2441,9 @@ function updateSceneFour(field, state, frameTime, boundaryField) {
   group.visible = true;
   screenGroup.visible = true;
   const sceneFourElapsed = Math.max(0, frameTime - SCENE_FOUR_START);
+  const offsetLy = state.viewOffsetLy
+    ?? THREE.MathUtils.lerp(SCENE_FOUR_START_OFFSET_LY, SCENE_FOUR_END_OFFSET_LY, state.parallaxProgress ?? 0);
+  const sceneFourCameraPosition = computeSceneFourCameraOrbit(offsetLy);
   // The stars and the realistic Orion skeleton stay in one world frame. The
   // camera movement below is independent from the line animation.
   group.rotation.set(0.05, -0.12, 0);
@@ -2446,6 +2455,11 @@ function updateSceneFour(field, state, frameTime, boundaryField) {
     1,
   ));
   imprint.position.copy(sphereCenter).lerp(imprintTarget, imprintMove);
+  const alnitakPosition = stars[5].position;
+  const separation = imprint.position.clone().sub(alnitakPosition);
+  if (separation.lengthSq() > 1e-6) {
+    imprint.position.addScaledVector(separation.normalize(), state.imprintFade * 0.55);
+  }
   imprint.rotation.z = Math.sin((frameTime - SCENE_FOUR_START) * 0.7) * 0.08;
 
   const flatLinePositions = new Map();
@@ -2460,6 +2474,9 @@ function updateSceneFour(field, state, frameTime, boundaryField) {
     } = star.userData;
     const brightness = star.userData.definition.brightness ?? 1;
     const name = star.userData.definition.latin.toLowerCase();
+    const beltBrightness = ['mintaka', 'alnilam', 'alnitak'].includes(name)
+      ? SCENE_FOUR_BELT_STAR_BRIGHTNESS
+      : 1;
     const coord = ORION_STAR_COORD_MAP[name] ?? ORION_STAR_COORD_MAP[star.userData.definition.label];
     if (coord) {
       const targetVec = new THREE.Vector3(...coord.target);
@@ -2467,12 +2484,15 @@ function updateSceneFour(field, state, frameTime, boundaryField) {
       // own 3D frame and moves the observer through it.
       star.position.copy(targetVec);
       depthLinePositions.set(coord.target, targetVec);
+      const perspectiveScale = sceneFourPerspectiveScale(targetVec, sceneFourCameraPosition);
+      halo.scale.setScalar(star.userData.definition.scale * 3.8 * perspectiveScale);
+      core.scale.setScalar(star.userData.definition.scale * 1.5 * perspectiveScale);
     } else {
       star.position.set(...star.userData.definition.position);
     }
     const pulse = 0.9 + Math.sin(frameTime * 1.6 + phase) * 0.1;
-    core.material.opacity = Math.min(1, state.constellationReveal * pulse * 0.96 * brightness);
-    halo.material.opacity = Math.min(1, state.constellationReveal * pulse * 0.85 * brightness);
+    core.material.opacity = Math.min(1, state.constellationReveal * pulse * 0.96 * brightness * SCENE_FOUR_STAR_BRIGHTNESS * beltBrightness);
+    halo.material.opacity = Math.min(1, state.constellationReveal * pulse * 0.85 * brightness * SCENE_FOUR_STAR_BRIGHTNESS * beltBrightness);
     const labelOpacity = state.constellationReveal * (0.52 + pulse * 0.22);
     label.style.opacity = `${labelOpacity}`;
     label.style.display = 'block';
@@ -2490,13 +2510,13 @@ function updateSceneFour(field, state, frameTime, boundaryField) {
         flatLinePositions.set(coord.start, shadowPos);
 
         const pulse = 0.9 + Math.sin(frameTime * 1.6 + flatStar.userData.phase) * 0.1;
-        const flatOpacity = Math.min(1, state.constellationReveal * pulse * 0.45);
+        const flatOpacity = Math.min(1, state.constellationReveal * pulse * 0.1);
         flatStar.material.opacity = flatOpacity;
       }
     });
   }
 
-  const distanceStart = stars[3].position;
+  const distanceStart = stars[4].position;
   distanceLine.geometry.setFromPoints([distanceStart, imprint.position]);
   distanceLine.computeLineDistances();
   distanceAnchor.position.copy(distanceStart).lerp(imprint.position, 0.52);
@@ -2512,20 +2532,16 @@ function updateSceneFour(field, state, frameTime, boundaryField) {
       const lineStrength = line.userData.isUpperTriangle ? 0.62 : 0.5;
       const opacity = lineProgress * lineStrength * layerOpacity;
       line.material.opacity = opacity;
-      if (line.userData.glow) {
-        line.userData.glow.material.opacity = opacity * 0.4;
-      }
 
       const pathPoints = line.userData.pathPoints;
       if (pathPoints) {
         const currentPoints = pathPoints.map((pt) => layerPositions.get(pt) ?? new THREE.Vector3(...pt));
         line.geometry.dispose();
-        line.geometry = createSceneFourTube(currentPoints, 0.014 * line.userData.emphasis);
-
-        if (line.userData.glow) {
-          line.userData.glow.geometry.dispose();
-          line.userData.glow.geometry = createSceneFourTube(currentPoints, 0.05 * line.userData.emphasis);
-        }
+        line.geometry = createSceneFourTube(
+          currentPoints,
+          SCENE_FOUR_LINE_RADIUS * line.userData.emphasis,
+          line.userData.layerName === 'depth' ? sceneFourCameraPosition : null,
+        );
       }
     });
   };
@@ -2541,10 +2557,14 @@ function updateSceneFour(field, state, frameTime, boundaryField) {
   imprintHalo.material.opacity = imprintEnergy * 0.28;
   imprintCore.scale.setScalar(0.62 + Math.sin(frameTime * 1.4) * 0.018);
   imprintHalo.scale.setScalar(1.65 + Math.sin(frameTime * 1.1) * 0.06);
+  const finalRippleFlash = Math.exp(-Math.pow((1 - state.progress) / 0.012, 2));
   imprintRings.forEach((ring, index) => {
     const ringPhase = frameTime * (1.8 - index * 0.22) + ring.userData.phase;
     ring.scale.setScalar(1 + Math.sin(ringPhase) * 0.04);
-    ring.material.opacity = imprintEnergy * (0.16 - index * 0.025);
+    ring.material.opacity = Math.min(
+      1,
+      imprintEnergy * (0.16 - index * 0.025) + finalRippleFlash * (0.28 - index * 0.035),
+    );
   });
 }
 
@@ -2589,7 +2609,7 @@ function updateScene(time, motionTime = time) {
     : { ...sceneFour, active: false };
   deepSkyRoot.style.opacity = sceneFourVisible ? `${sceneFourRenderState.reveal}` : '0';
   const storyTime = frameTime >= SCENE_ONE_END ? recombination.waveTime : frameTime;
-  const sceneThreeTransition = THREE.MathUtils.smoothstep(frameTime, SCENE_TWO_END, SCENE_TWO_END + 0.76);
+  const sceneThreeTransition = THREE.MathUtils.smoothstep(frameTime, SCENE_TWO_END, SCENE_TWO_END + 0.52);
   const oldFieldVisibility = 1 - sceneThreeTransition;
   const coolingVisibility = (1 - recombination.progress * 0.46) * oldFieldVisibility;
   const labelFade = 1 - THREE.MathUtils.smoothstep(recombination.progress, 0, 0.12);

@@ -160,7 +160,7 @@ export function getSceneFourState(time) {
     constellationReveal,
     lineReveal,
     projectionMorph,
-    flatLineOpacity: 0.78 * (1 - 0.35 * morphProgress),
+    flatLineOpacity: 0.78 * (1 - morphProgress),
     depthLineOpacity,
     auxiliaryMorph: projectionMorph,
     imprintFade,
