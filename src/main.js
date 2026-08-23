@@ -10,6 +10,8 @@ import {
   SCENE_TWO_END,
   SCENE_THREE_END,
   SCENE_FOUR_START,
+  SCENE_FOUR_START_OFFSET_LY,
+  SCENE_FOUR_END_OFFSET_LY,
   SCENE_THREE_IMPACT_TRAVEL,
   SCENE_DURATION,
   TOTAL_FRAMES,
@@ -34,65 +36,107 @@ const FROZEN_WAVE_COLOR = new THREE.Color(0xc4f3d5);
 const waveDisplayColor = new THREE.Color();
 const BOUNDARY_SPIN_RATE = 4.2;
 
-// Scene four uses the measured 1220 x 896 reference frame as its source of
-// truth. The z values preserve depth while the x/y values remain faithful to
-// the supplied start and end coordinates.
-const ORION_VIEWBOX = { width: 1220, height: 896 };
-const ORION_WORLD_SCALE = 7.2 / ORION_VIEWBOX.height;
-const ORION_VIEWBOX_CENTER = [ORION_VIEWBOX.width / 2, ORION_VIEWBOX.height / 2];
-const ORION_DEPTH = {
-  meissa: 0.56,
-  betelgeuse: 1.42,
-  bellatrix: 2.28,
-  mintaka: -1.55,
-  alnilam: -1.86,
-  alnitak: -1.34,
-  rigel: 0.58,
-  saiph: 0.92,
+// Scene four follows the Orion reference project's data model: celestial
+// direction comes from RA/Dec while depth comes from measured distance.
+const ORION_DATA = {
+  betelgeuse: { raJ2000: '05 55 10.305', decJ2000: '+07 24 25.43', distanceLy: 548 },
+  rigel: { raJ2000: '05 14 32.272', decJ2000: '-08 12 05.898', distanceLy: 848 },
+  bellatrix: { raJ2000: '05 25 07.863', decJ2000: '+06 20 58.932', distanceLy: 250 },
+  mintaka: { raJ2000: '05 32 00.400', decJ2000: '-00 17 56.742', distanceLy: 1246 },
+  alnilam: { raJ2000: '05 36 12.813', decJ2000: '-01 12 06.909', distanceLy: 1250 },
+  alnitak: { raJ2000: '05 40 45.527', decJ2000: '-01 56 34.265', distanceLy: 1260 },
+  saiph: { raJ2000: '05 47 45.389', decJ2000: '-09 40 10.578', distanceLy: 650 },
+  meissa: { raJ2000: '05 35 08.276', decJ2000: '+09 56 02.991', distanceLy: 1300 },
 };
+const ORION_CAMERA_DISTANCE = 12.5;
+const ORION_SCREEN_DEPTH = 8.6;
+const ORION_NEAR_DEPTH = 2.28;
+const ORION_FAR_DEPTH = -1.86;
+const ORION_GROUP_ROTATION = new THREE.Euler(0.05, -0.12, 0);
+const ORION_GROUP_INVERSE_ROTATION = new THREE.Quaternion()
+  .setFromEuler(ORION_GROUP_ROTATION)
+  .invert();
 
-function orionViewBoxPoint([x, y], depth) {
-  return [
-    (x - ORION_VIEWBOX_CENTER[0]) * ORION_WORLD_SCALE,
-    (ORION_VIEWBOX_CENTER[1] - y) * ORION_WORLD_SCALE,
+function parseOrionHms(value) {
+  const [hours = 0, minutes = 0, seconds = 0] = value.trim().split(/\s+/u).map(Number);
+  return hours + minutes / 60 + seconds / 3600;
+}
+
+function parseOrionDms(value) {
+  const sign = value.trim().startsWith('-') ? -1 : 1;
+  const [degrees = 0, minutes = 0, seconds = 0] = value.trim().replace(/^[+-]/u, '').split(/\s+/u).map(Number);
+  return sign * (degrees + minutes / 60 + seconds / 3600);
+}
+
+function orionDirection(star) {
+  const ra = parseOrionHms(star.raJ2000) * 15 * Math.PI / 180;
+  const dec = parseOrionDms(star.decJ2000) * Math.PI / 180;
+  const cosDec = Math.cos(dec);
+  return new THREE.Vector3(cosDec * Math.cos(ra), cosDec * Math.sin(ra), Math.sin(dec));
+}
+
+const ORION_REFERENCE_FRAME = (() => {
+  const directions = Object.values(ORION_DATA).map(orionDirection);
+  const forward = directions.reduce((sum, direction) => sum.add(direction), new THREE.Vector3()).normalize();
+  const right = new THREE.Vector3(forward.y, -forward.x, 0).normalize();
+  const up = new THREE.Vector3().crossVectors(right, forward).normalize();
+  const distances = Object.values(ORION_DATA).map(({ distanceLy }) => distanceLy).sort((a, b) => a - b);
+  const pivotLy = Math.exp((Math.log(distances[3]) + Math.log(distances[4])) * 0.5);
+  return { forward, right, up, pivotLy, minDistanceLy: distances[0], maxDistanceLy: distances[distances.length - 1] };
+})();
+
+function orionDepth(star) {
+  const frame = ORION_REFERENCE_FRAME;
+  const progress = (star.distanceLy - frame.minDistanceLy) / (frame.maxDistanceLy - frame.minDistanceLy);
+  return THREE.MathUtils.lerp(ORION_NEAR_DEPTH, ORION_FAR_DEPTH, progress);
+}
+
+function orionProjectedPoint(star) {
+  const direction = orionDirection(star);
+  const frame = ORION_REFERENCE_FRAME;
+  const forwardDepth = Math.max(0.15, direction.dot(frame.forward));
+  const depth = orionDepth(star);
+  const cameraPlaneDistance = ORION_CAMERA_DISTANCE - depth;
+  const point = new THREE.Vector3(
+    direction.dot(frame.right) / forwardDepth * cameraPlaneDistance,
+    direction.dot(frame.up) / forwardDepth * cameraPlaneDistance,
     depth,
+  );
+  return point.applyQuaternion(ORION_GROUP_INVERSE_ROTATION).toArray();
+}
+
+function orionScreenPoint(star) {
+  const direction = orionDirection(star);
+  const frame = ORION_REFERENCE_FRAME;
+  const forwardDepth = Math.max(0.15, direction.dot(frame.forward));
+  return [
+    direction.dot(frame.right) / forwardDepth * ORION_SCREEN_DEPTH,
+    direction.dot(frame.up) / forwardDepth * ORION_SCREEN_DEPTH,
+    -ORION_SCREEN_DEPTH,
   ];
 }
 
-const ORION_START_COORDS = {
-  betelgeuse: [380, 298],
-  bellatrix: [327, 384],
-  meissa: [612, 205],
-  mintaka: [604, 476],
-  alnilam: [578, 493],
-  alnitak: [558, 529],
-  rigel: [692, 657],
-  saiph: [456, 699],
-};
-
 const ORION_POINTS = {
-  betelgeuse: orionViewBoxPoint(ORION_START_COORDS.betelgeuse, ORION_DEPTH.betelgeuse),
-  bellatrix: orionViewBoxPoint(ORION_START_COORDS.bellatrix, ORION_DEPTH.bellatrix),
-  clubTip: orionViewBoxPoint(ORION_START_COORDS.meissa, ORION_DEPTH.meissa),
-  beltRight: orionViewBoxPoint(ORION_START_COORDS.mintaka, ORION_DEPTH.mintaka),
-  beltMiddle: orionViewBoxPoint(ORION_START_COORDS.alnilam, ORION_DEPTH.alnilam),
-  beltLeft: orionViewBoxPoint(ORION_START_COORDS.alnitak, ORION_DEPTH.alnitak),
-  rigel: orionViewBoxPoint(ORION_START_COORDS.rigel, ORION_DEPTH.rigel),
-  saiph: orionViewBoxPoint(ORION_START_COORDS.saiph, ORION_DEPTH.saiph),
+  betelgeuse: orionProjectedPoint(ORION_DATA.betelgeuse),
+  bellatrix: orionProjectedPoint(ORION_DATA.bellatrix),
+  clubTip: orionProjectedPoint(ORION_DATA.meissa),
+  beltRight: orionProjectedPoint(ORION_DATA.mintaka),
+  beltMiddle: orionProjectedPoint(ORION_DATA.alnilam),
+  beltLeft: orionProjectedPoint(ORION_DATA.alnitak),
+  rigel: orionProjectedPoint(ORION_DATA.rigel),
+  saiph: orionProjectedPoint(ORION_DATA.saiph),
 };
 
-// The flat layer is the same star graph seen from Earth: every point keeps
-// its measured x/y position but shares one depth plane. The depth layer below
-// uses the fixed three-dimensional coordinates in ORION_POINTS.
+// The auxiliary skeleton is the reference project's camera-locked projection.
 const ORION_FLAT_POINTS = {
-  betelgeuse: orionViewBoxPoint(ORION_START_COORDS.betelgeuse, 0.08),
-  bellatrix: orionViewBoxPoint(ORION_START_COORDS.bellatrix, 0.08),
-  clubTip: orionViewBoxPoint(ORION_START_COORDS.meissa, 0.08),
-  beltRight: orionViewBoxPoint(ORION_START_COORDS.mintaka, 0.08),
-  beltMiddle: orionViewBoxPoint(ORION_START_COORDS.alnilam, 0.08),
-  beltLeft: orionViewBoxPoint(ORION_START_COORDS.alnitak, 0.08),
-  rigel: orionViewBoxPoint(ORION_START_COORDS.rigel, 0.08),
-  saiph: orionViewBoxPoint(ORION_START_COORDS.saiph, 0.08),
+  betelgeuse: orionScreenPoint(ORION_DATA.betelgeuse),
+  bellatrix: orionScreenPoint(ORION_DATA.bellatrix),
+  clubTip: orionScreenPoint(ORION_DATA.meissa),
+  beltRight: orionScreenPoint(ORION_DATA.mintaka),
+  beltMiddle: orionScreenPoint(ORION_DATA.alnilam),
+  beltLeft: orionScreenPoint(ORION_DATA.alnitak),
+  rigel: orionScreenPoint(ORION_DATA.rigel),
+  saiph: orionScreenPoint(ORION_DATA.saiph),
 };
 
 const ORION_STARS = [
@@ -107,33 +151,31 @@ const ORION_STARS = [
 ];
 
 const ORION_PATHS = [
-  { emphasis: 1.55, points: [ORION_POINTS.clubTip, ORION_POINTS.betelgeuse] },
-  { emphasis: 1.55, points: [ORION_POINTS.clubTip, ORION_POINTS.bellatrix] },
   { emphasis: 1.35, points: [ORION_POINTS.betelgeuse, ORION_POINTS.bellatrix] },
-  { emphasis: 1.35, points: [ORION_POINTS.betelgeuse, ORION_POINTS.beltRight] },
-  { emphasis: 1.45, points: [ORION_POINTS.bellatrix, ORION_POINTS.beltLeft] },
-  { emphasis: 0.72, points: [ORION_POINTS.beltLeft, ORION_POINTS.beltMiddle] },
+  { emphasis: 1.35, points: [ORION_POINTS.betelgeuse, ORION_POINTS.beltLeft] },
+  { emphasis: 1.45, points: [ORION_POINTS.bellatrix, ORION_POINTS.beltRight] },
   { emphasis: 0.72, points: [ORION_POINTS.beltMiddle, ORION_POINTS.beltRight] },
+  { emphasis: 0.72, points: [ORION_POINTS.beltMiddle, ORION_POINTS.beltLeft] },
   { emphasis: 1.55, points: [ORION_POINTS.beltLeft, ORION_POINTS.saiph] },
   { emphasis: 1.55, points: [ORION_POINTS.beltRight, ORION_POINTS.rigel] },
+  { emphasis: 1.55, points: [ORION_POINTS.clubTip, ORION_POINTS.betelgeuse] },
+  { emphasis: 1.55, points: [ORION_POINTS.clubTip, ORION_POINTS.bellatrix] },
 ];
 
 const ORION_FLAT_PATHS = [
-  { emphasis: 1.55, points: [ORION_FLAT_POINTS.clubTip, ORION_FLAT_POINTS.betelgeuse] },
-  { emphasis: 1.55, points: [ORION_FLAT_POINTS.clubTip, ORION_FLAT_POINTS.bellatrix] },
   { emphasis: 1.35, points: [ORION_FLAT_POINTS.betelgeuse, ORION_FLAT_POINTS.bellatrix] },
-  { emphasis: 1.35, points: [ORION_FLAT_POINTS.betelgeuse, ORION_FLAT_POINTS.beltRight] },
-  { emphasis: 1.45, points: [ORION_FLAT_POINTS.bellatrix, ORION_FLAT_POINTS.beltLeft] },
-  { emphasis: 0.72, points: [ORION_FLAT_POINTS.beltLeft, ORION_FLAT_POINTS.beltMiddle] },
+  { emphasis: 1.35, points: [ORION_FLAT_POINTS.betelgeuse, ORION_FLAT_POINTS.beltLeft] },
+  { emphasis: 1.45, points: [ORION_FLAT_POINTS.bellatrix, ORION_FLAT_POINTS.beltRight] },
   { emphasis: 0.72, points: [ORION_FLAT_POINTS.beltMiddle, ORION_FLAT_POINTS.beltRight] },
+  { emphasis: 0.72, points: [ORION_FLAT_POINTS.beltMiddle, ORION_FLAT_POINTS.beltLeft] },
   { emphasis: 1.55, points: [ORION_FLAT_POINTS.beltLeft, ORION_FLAT_POINTS.saiph] },
   { emphasis: 1.55, points: [ORION_FLAT_POINTS.beltRight, ORION_FLAT_POINTS.rigel] },
+  { emphasis: 1.55, points: [ORION_FLAT_POINTS.clubTip, ORION_FLAT_POINTS.betelgeuse] },
+  { emphasis: 1.55, points: [ORION_FLAT_POINTS.clubTip, ORION_FLAT_POINTS.bellatrix] },
 ];
 
-// The first three edges form the upper triangle; the last three are the
-// lower legs and crossed belt geometry in the supplied reference.
-const ORION_UPPER_TRIANGLE_PATH_INDICES = new Set([0, 1, 2]);
-const ORION_LOWER_SHADOW_PATH_INDICES = new Set([5, 6, 7, 8]);
+const ORION_UPPER_TRIANGLE_PATH_INDICES = new Set([0, 7, 8]);
+const ORION_LOWER_SHADOW_PATH_INDICES = new Set([3, 4, 5, 6]);
 
 const SCENE_FOUR_IMPRINT_TARGET = new THREE.Vector3(-3.35, -0.12, -4.1);
 
@@ -182,6 +224,9 @@ scene.fog = new THREE.FogExp2(0x020407, 0.006);
 const camera = new THREE.PerspectiveCamera(43, 1, 0.1, 100);
 camera.position.set(0, 0.1, 12.5);
 camera.lookAt(0, 0, 0);
+scene.add(camera);
+const sceneFourScreenGroup = new THREE.Group();
+camera.add(sceneFourScreenGroup);
 
 const celestialField = new THREE.Group();
 scene.add(celestialField);
@@ -231,7 +276,7 @@ const boundaryField = createBoundaryLobes();
 scene.add(boundaryField.group);
 const wave = createWavePacket();
 celestialField.add(wave.group);
-const sceneFourField = createSceneFourField(texture, labelsRoot);
+const sceneFourField = createSceneFourField(texture, labelsRoot, sceneFourScreenGroup);
 scene.add(sceneFourField.group);
 
 const labels = nodeDefinitions.map((definition) => {
@@ -610,7 +655,7 @@ function createSceneFourLineLayer(pathDefinitions, layerName, group) {
   });
 }
 
-function createSceneFourField(texture, labelsRoot) {
+function createSceneFourField(texture, labelsRoot, screenGroup) {
   const group = new THREE.Group();
   group.visible = false;
 
@@ -711,11 +756,11 @@ function createSceneFourField(texture, labelsRoot) {
       index,
       phase: index * 0.73,
     };
-    group.add(flatStar);
+    screenGroup.add(flatStar);
     return flatStar;
   });
 
-  const flatLines = createSceneFourLineLayer(ORION_FLAT_PATHS, 'flat', group);
+  const flatLines = createSceneFourLineLayer(ORION_FLAT_PATHS, 'flat', screenGroup);
   const depthLines = createSceneFourLineLayer(ORION_PATHS, 'depth', group);
 
   const distanceFrom = ORION_STARS[3].position;
@@ -787,6 +832,7 @@ function createSceneFourField(texture, labelsRoot) {
 
   return {
     group,
+    screenGroup,
     backdrop,
     stars,
     flatStars,
@@ -2227,20 +2273,29 @@ function updateSceneThreeCamera(frameTime, storyTime, cameraPush, recombination,
   camera.lookAt(baseTarget.lerp(followTarget, followProgress).lerp(surfaceTarget, surfaceProgress));
 }
 
-function updateSceneFourCamera(frameTime, state, boundaryField) {
-  const sphereCenter = boundaryField.lobes[0].getWorldPosition(new THREE.Vector3());
-  const startPosition = sphereCenter.clone().add(new THREE.Vector3(0, 2.15, 6.9));
-  const leftObserver = new THREE.Vector3(-3.6, 0.48, 12.5);
-  const rightObserver = new THREE.Vector3(3.6, 0.48, 12.5);
-  const leftTarget = new THREE.Vector3(-0.18, 0.02, 0);
-  const rightTarget = new THREE.Vector3(0.24, 0.02, 0);
-  const reveal = state.active
-    ? smoothstep(THREE.MathUtils.clamp((frameTime - SCENE_FOUR_START) / 1.8, 0, 1))
-    : 0;
-  const observer = leftObserver.clone().lerp(rightObserver, state.parallaxProgress ?? 0);
-  const target = leftTarget.clone().lerp(rightTarget, state.parallaxProgress ?? 0);
-  camera.position.copy(startPosition).lerp(observer, reveal);
-  camera.lookAt(sphereCenter.clone().lerp(target, reveal));
+function computeSceneFourCameraOrbit(offsetLy) {
+  const sinAlpha = THREE.MathUtils.clamp(offsetLy / ORION_REFERENCE_FRAME.pivotLy, -0.92, 0.92);
+  const alpha = Math.asin(sinAlpha);
+  const pitch = alpha * 0.26;
+  const cosAlpha = Math.cos(alpha);
+  const cosPitch = Math.cos(pitch);
+  const sinPitch = Math.sin(pitch);
+  return new THREE.Vector3(
+    -sinAlpha * ORION_CAMERA_DISTANCE,
+    -cosAlpha * sinPitch * ORION_CAMERA_DISTANCE,
+    cosAlpha * cosPitch * ORION_CAMERA_DISTANCE,
+  );
+}
+
+function updateSceneFourCamera(_frameTime, state, _boundaryField) {
+  const offsetLy = state.viewOffsetLy
+    ?? THREE.MathUtils.lerp(SCENE_FOUR_START_OFFSET_LY, SCENE_FOUR_END_OFFSET_LY, state.parallaxProgress ?? 0);
+  camera.position.copy(computeSceneFourCameraOrbit(offsetLy));
+  camera.lookAt(0, 0, 0);
+  if (camera.fov !== 43) {
+    camera.fov = 43;
+    camera.updateProjectionMatrix();
+  }
 }
 
 function updateSceneThreeWave(state) {
@@ -2345,6 +2400,7 @@ function updateSceneThreeWave(state) {
 function updateSceneFour(field, state, frameTime, boundaryField) {
   const {
     group,
+    screenGroup,
     backdrop,
     stars,
     flatStars,
@@ -2361,6 +2417,7 @@ function updateSceneFour(field, state, frameTime, boundaryField) {
   } = field;
   if (!state.active) {
     group.visible = false;
+    screenGroup.visible = false;
     stars.forEach((star) => {
       star.userData.label.style.opacity = '0';
       star.userData.label.style.display = 'none';
@@ -2376,6 +2433,7 @@ function updateSceneFour(field, state, frameTime, boundaryField) {
   }
 
   group.visible = true;
+  screenGroup.visible = true;
   const sceneFourElapsed = Math.max(0, frameTime - SCENE_FOUR_START);
   // The stars and the realistic Orion skeleton stay in one world frame. The
   // camera movement below is independent from the line animation.
@@ -2390,12 +2448,8 @@ function updateSceneFour(field, state, frameTime, boundaryField) {
   imprint.position.copy(sphereCenter).lerp(imprintTarget, imprintMove);
   imprint.rotation.z = Math.sin((frameTime - SCENE_FOUR_START) * 0.7) * 0.08;
 
-  const morphProgress = state.morphProgress ?? 0;
-
   const flatLinePositions = new Map();
   const depthLinePositions = new Map();
-
-  const shadowOffset = new THREE.Vector3(-0.035, -0.025, -0.04);
 
   stars.forEach((star) => {
     const {
@@ -2408,13 +2462,11 @@ function updateSceneFour(field, state, frameTime, boundaryField) {
     const name = star.userData.definition.latin.toLowerCase();
     const coord = ORION_STAR_COORD_MAP[name] ?? ORION_STAR_COORD_MAP[star.userData.definition.label];
     if (coord) {
-      const startVec = new THREE.Vector3(...coord.start);
       const targetVec = new THREE.Vector3(...coord.target);
-      // Foreground bright star moves RIGHTWARDS from startVec (left) to targetVec (upright posture on right)
-      const currentPos = startVec.clone().lerp(targetVec, morphProgress);
-
-      star.position.copy(currentPos);
-      depthLinePositions.set(coord.target, currentPos);
+      // The reference implementation keeps the constellation fixed in its
+      // own 3D frame and moves the observer through it.
+      star.position.copy(targetVec);
+      depthLinePositions.set(coord.target, targetVec);
     } else {
       star.position.set(...star.userData.definition.position);
     }
@@ -2431,9 +2483,9 @@ function updateSceneFour(field, state, frameTime, boundaryField) {
       const name = flatStar.userData.definition.latin.toLowerCase();
       const coord = ORION_STAR_COORD_MAP[name] ?? ORION_STAR_COORD_MAP[flatStar.userData.definition.label];
       if (coord) {
-        const targetVec = new THREE.Vector3(...coord.target);
-        // Background shadow star stands fixed at upright posture + shadowOffset
-        const shadowPos = targetVec.clone().add(shadowOffset);
+        // The auxiliary graph is locked to the camera, matching the
+        // reference site's screen-space perspective skeleton.
+        const shadowPos = new THREE.Vector3(...coord.start);
         flatStar.position.copy(shadowPos);
         flatLinePositions.set(coord.start, shadowPos);
 

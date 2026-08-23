@@ -5,6 +5,8 @@ export const SCENE_THREE_END = 16.167;
 export const SCENE_FOUR_START = SCENE_THREE_END;
 export const SCENE_DURATION = 24.6;
 export const TOTAL_FRAMES = Math.round(SCENE_DURATION * FPS);
+export const SCENE_FOUR_START_OFFSET_LY = -83.2;
+export const SCENE_FOUR_END_OFFSET_LY = -1.5;
 export const WAVE_START = 4.3;
 export const WAVE_END = SCENE_ONE_END;
 export const SILENCE_START = 9.94;
@@ -143,9 +145,11 @@ export function getSceneFourState(time) {
   const distanceReveal = smoothRange(time, SCENE_FOUR_START + 2.15, SCENE_FOUR_START + 4.1);
   const parallaxProgress = smoothRange(
     time,
-    SCENE_FOUR_START + 0.9,
-    SCENE_DURATION - 0.35,
+    SCENE_FOUR_START + 1 / FPS,
+    SCENE_DURATION - 1 / FPS,
   );
+  const viewOffsetLy = SCENE_FOUR_START_OFFSET_LY
+    + (SCENE_FOUR_END_OFFSET_LY - SCENE_FOUR_START_OFFSET_LY) * parallaxProgress;
 
   const morphProgress = getSceneFourMorphProgress(time);
 
@@ -162,6 +166,7 @@ export function getSceneFourState(time) {
     imprintFade,
     distanceReveal,
     parallaxProgress,
+    viewOffsetLy,
     morphProgress,
   };
 }
