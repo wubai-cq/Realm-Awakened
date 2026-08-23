@@ -96,14 +96,14 @@ const ORION_FLAT_POINTS = {
 };
 
 const ORION_STARS = [
-  { label: '参宿四', latin: 'BETELGEUSE', position: ORION_POINTS.betelgeuse, scale: 0.15, brightness: 1.45, color: 0xffc7a5 },
-  { label: '参宿五', latin: 'BELLATRIX', position: ORION_POINTS.bellatrix, scale: 0.13, brightness: 1.45, color: 0xd5e4ff },
-  { label: '猎宿一', latin: 'MEISSA', position: ORION_POINTS.clubTip, scale: 0.11, brightness: 1.45, color: 0xdde9ff },
-  { label: '参宿三', latin: 'MINTAKA', position: ORION_POINTS.beltRight, scale: 0.12, color: 0xd9e7ff },
-  { label: '参宿二', latin: 'ALNILAM', position: ORION_POINTS.beltMiddle, scale: 0.13, color: 0xe4efff },
-  { label: '参宿一', latin: 'ALNITAK', position: ORION_POINTS.beltLeft, scale: 0.11, color: 0xdde9ff },
-  { label: '参宿七', latin: 'RIGEL', position: ORION_POINTS.rigel, scale: 0.15, color: 0xd7e7ff },
-  { label: '参宿六', latin: 'SAIPH', position: ORION_POINTS.saiph, scale: 0.12, color: 0xcbdcff },
+  { label: '参宿四', latin: 'BETELGEUSE', position: ORION_POINTS.betelgeuse, scale: 0.22, brightness: 1.6, color: 0xffa652 },
+  { label: '参宿五', latin: 'BELLATRIX', position: ORION_POINTS.bellatrix, scale: 0.18, brightness: 1.5, color: 0xd5e4ff },
+  { label: '觜宿一', latin: 'MEISSA', position: ORION_POINTS.clubTip, scale: 0.15, brightness: 1.4, color: 0xdde9ff },
+  { label: '参宿三', latin: 'MINTAKA', position: ORION_POINTS.beltRight, scale: 0.16, brightness: 1.45, color: 0xd9e7ff },
+  { label: '参宿二', latin: 'ALNILAM', position: ORION_POINTS.beltMiddle, scale: 0.17, brightness: 1.5, color: 0xe4efff },
+  { label: '参宿一', latin: 'ALNITAK', position: ORION_POINTS.beltLeft, scale: 0.16, brightness: 1.45, color: 0xdde9ff },
+  { label: '参宿七', latin: 'RIGEL', position: ORION_POINTS.rigel, scale: 0.22, brightness: 1.6, color: 0xcbe2ff },
+  { label: '参宿六', latin: 'SAIPH', position: ORION_POINTS.saiph, scale: 0.16, brightness: 1.45, color: 0xcbdcff },
 ];
 
 const ORION_PATHS = [
@@ -136,6 +136,17 @@ const ORION_UPPER_TRIANGLE_PATH_INDICES = new Set([0, 1, 2]);
 const ORION_LOWER_SHADOW_PATH_INDICES = new Set([5, 6, 7, 8]);
 
 const SCENE_FOUR_IMPRINT_TARGET = new THREE.Vector3(-3.35, -0.12, -4.1);
+
+const ORION_STAR_COORD_MAP = {
+  betelgeuse: { start: ORION_FLAT_POINTS.betelgeuse, target: ORION_POINTS.betelgeuse },
+  bellatrix: { start: ORION_FLAT_POINTS.bellatrix, target: ORION_POINTS.bellatrix },
+  meissa: { start: ORION_FLAT_POINTS.clubTip, target: ORION_POINTS.clubTip },
+  mintaka: { start: ORION_FLAT_POINTS.beltRight, target: ORION_POINTS.beltRight },
+  alnilam: { start: ORION_FLAT_POINTS.beltMiddle, target: ORION_POINTS.beltMiddle },
+  alnitak: { start: ORION_FLAT_POINTS.beltLeft, target: ORION_POINTS.beltLeft },
+  rigel: { start: ORION_FLAT_POINTS.rigel, target: ORION_POINTS.rigel },
+  saiph: { start: ORION_FLAT_POINTS.saiph, target: ORION_POINTS.saiph },
+};
 
 const audio = document.querySelector('#narration');
 const canvas = document.querySelector('#scene');
@@ -261,6 +272,72 @@ function createGaussianTexture() {
   return map;
 }
 
+function createOrionStarTexture(colorHex = 0xffffff, size = 256) {
+  const canvas2d = document.createElement('canvas');
+  canvas2d.width = size;
+  canvas2d.height = size;
+  const ctx = canvas2d.getContext('2d');
+  const center = size / 2;
+  const color = new THREE.Color(colorHex);
+  const r = Math.round(color.r * 255);
+  const g = Math.round(color.g * 255);
+  const b = Math.round(color.b * 255);
+
+  // 1. Soft Outer Color Halo
+  const haloGrad = ctx.createRadialGradient(center, center, 0, center, center, center * 0.85);
+  haloGrad.addColorStop(0, `rgba(${r}, ${g}, ${b}, 0.85)`);
+  haloGrad.addColorStop(0.2, `rgba(${r}, ${g}, ${b}, 0.4)`);
+  haloGrad.addColorStop(0.55, `rgba(${r}, ${g}, ${b}, 0.1)`);
+  haloGrad.addColorStop(1, 'rgba(0, 0, 0, 0)');
+  ctx.fillStyle = haloGrad;
+  ctx.fillRect(0, 0, size, size);
+
+  // 2. 4-Point Lens Flare Cross (Diffraction Spikes / 十字星芒)
+  ctx.save();
+  ctx.globalCompositeOperation = 'screen';
+
+  // Horizontal Spike
+  const hSpike = ctx.createLinearGradient(0, center, size, center);
+  hSpike.addColorStop(0, 'rgba(255, 255, 255, 0)');
+  hSpike.addColorStop(0.35, `rgba(${r}, ${g}, ${b}, 0.5)`);
+  hSpike.addColorStop(0.48, 'rgba(255, 255, 255, 0.95)');
+  hSpike.addColorStop(0.5, 'rgba(255, 255, 255, 1)');
+  hSpike.addColorStop(0.52, 'rgba(255, 255, 255, 0.95)');
+  hSpike.addColorStop(0.65, `rgba(${r}, ${g}, ${b}, 0.5)`);
+  hSpike.addColorStop(1, 'rgba(255, 255, 255, 0)');
+  ctx.fillStyle = hSpike;
+  ctx.fillRect(0, center - 2.5, size, 5);
+
+  // Vertical Spike
+  const vSpike = ctx.createLinearGradient(center, 0, center, size);
+  vSpike.addColorStop(0, 'rgba(255, 255, 255, 0)');
+  vSpike.addColorStop(0.35, `rgba(${r}, ${g}, ${b}, 0.5)`);
+  vSpike.addColorStop(0.48, 'rgba(255, 255, 255, 0.95)');
+  vSpike.addColorStop(0.5, 'rgba(255, 255, 255, 1)');
+  vSpike.addColorStop(0.52, 'rgba(255, 255, 255, 0.95)');
+  vSpike.addColorStop(0.65, `rgba(${r}, ${g}, ${b}, 0.5)`);
+  vSpike.addColorStop(1, 'rgba(255, 255, 255, 0)');
+  ctx.fillStyle = vSpike;
+  ctx.fillRect(center - 2.5, 0, 5, size);
+
+  // 3. Bright White Hot Core
+  const coreGrad = ctx.createRadialGradient(center, center, 0, center, center, center * 0.22);
+  coreGrad.addColorStop(0, 'rgba(255, 255, 255, 1)');
+  coreGrad.addColorStop(0.4, 'rgba(255, 255, 255, 0.95)');
+  coreGrad.addColorStop(0.7, `rgba(${r}, ${g}, ${b}, 0.6)`);
+  coreGrad.addColorStop(1, 'rgba(0, 0, 0, 0)');
+  ctx.fillStyle = coreGrad;
+  ctx.beginPath();
+  ctx.arc(center, center, center * 0.22, 0, Math.PI * 2);
+  ctx.fill();
+
+  ctx.restore();
+
+  const texture = new THREE.CanvasTexture(canvas2d);
+  texture.colorSpace = THREE.SRGBColorSpace;
+  return texture;
+}
+
 async function loadReferenceCosmicWeb() {
   try {
     const response = await fetch('/chladni-reference.bin');
@@ -280,57 +357,131 @@ function createSceneFourTube(points, radius) {
 }
 
 function createSceneFourDustHazeTexture() {
-  const size = 768;
+  const bw = 512;
+  const bh = 768;
   const canvas2d = document.createElement('canvas');
-  canvas2d.width = size;
-  canvas2d.height = size;
+  canvas2d.width = bw;
+  canvas2d.height = bh;
   const ctx = canvas2d.getContext('2d');
-  const randomAt = (index, salt) => {
-    const value = Math.sin(index * 12.9898 + salt * 78.233) * 43758.5453;
-    return value - Math.floor(value);
+
+  const makeRng = (seed) => {
+    let state = seed >>> 0;
+    return () => {
+      state = (state + 0x6d2b79f5) | 0;
+      let value = Math.imul(state ^ (state >>> 15), 1 | state);
+      value = (value + Math.imul(value ^ (value >>> 7), 61 | value)) ^ value;
+      return ((value ^ (value >>> 14)) >>> 0) / 4294967296;
+    };
   };
 
-  ctx.save();
-  ctx.globalCompositeOperation = 'screen';
-  for (let i = 0; i < 72; i += 1) {
-    const t = (i + randomAt(i, 2.3) * 0.8) / 72;
-    const x = size * (0.26 + t * 0.22) + (randomAt(i, 4.1) - 0.5) * 80;
-    const y = size * (0.06 + t * 0.9) + (randomAt(i, 5.8) - 0.5) * 60;
-    const radiusX = 34 + randomAt(i, 7.4) * 100;
-    const radiusY = 55 + randomAt(i, 9.2) * 150;
-    const gradient = ctx.createRadialGradient(x, y, 0, x, y, Math.max(radiusX, radiusY));
-    const alpha = 0.018 + randomAt(i, 11.6) * 0.038;
-    gradient.addColorStop(0, `rgba(142, 140, 143, ${alpha})`);
-    gradient.addColorStop(0.48, `rgba(127, 125, 131, ${alpha * 0.46})`);
-    gradient.addColorStop(1, 'rgba(106, 104, 108, 0)');
-    ctx.save();
-    ctx.translate(x, y);
-    ctx.rotate((randomAt(i, 13.7) - 0.5) * 0.9);
-    ctx.scale(radiusX / radiusY, 1);
-    ctx.translate(-x, -y);
-    ctx.fillStyle = gradient;
-    ctx.fillRect(x - radiusY, y - radiusY, radiusY * 2, radiusY * 2);
-    ctx.restore();
-  }
+  const buildValueNoise = (seed, gridSize) => {
+    const random = makeRng(seed);
+    const stride = gridSize + 1;
+    const grid = new Float32Array(stride * stride);
+    for (let i = 0; i < grid.length; i += 1) grid[i] = random();
+    const smooth = (v) => v * v * v * (v * (v * 6 - 15) + 10);
+    const sample = (x, y) => {
+      const xx = ((x % gridSize) + gridSize) % gridSize;
+      const yy = ((y % gridSize) + gridSize) % gridSize;
+      return grid[yy * stride + xx];
+    };
+    return (x, y) => {
+      const x0 = Math.floor(x);
+      const y0 = Math.floor(y);
+      const sx = smooth(x - x0);
+      const sy = smooth(y - y0);
+      const nx0 = sample(x0, y0) + (sample(x0 + 1, y0) - sample(x0, y0)) * sx;
+      const nx1 = sample(x0, y0 + 1) + (sample(x0 + 1, y0 + 1) - sample(x0, y0 + 1)) * sx;
+      return nx0 + (nx1 - nx0) * sy;
+    };
+  };
 
-  ctx.filter = 'blur(10px)';
-  for (let i = 0; i < 28; i += 1) {
-    const t = (i + 0.4) / 28;
-    const x = size * (0.21 + t * 0.27);
-    const y = size * (0.08 + t * 0.87);
-    ctx.beginPath();
-    ctx.moveTo(x - 44, y - 80);
-    ctx.quadraticCurveTo(
-      x + (Math.sin(i * 1.7) * 48),
-      y - 20,
-      x + (Math.cos(i * 1.2) * 34),
-      y + 96,
-    );
-    ctx.strokeStyle = `rgba(134, 132, 136, ${0.018 + (i % 4) * 0.006})`;
-    ctx.lineWidth = 3 + (i % 5) * 2;
-    ctx.stroke();
+  const fbm = (noise, x, y, octaves, lacunarity, gain) => {
+    let amp = 0.5;
+    let freq = 1;
+    let total = 0;
+    let norm = 0;
+    for (let o = 0; o < octaves; o += 1) {
+      total += amp * noise(x * freq, y * freq);
+      norm += amp;
+      amp *= gain;
+      freq *= lacunarity;
+    }
+    return total / norm;
+  };
+
+  const noiseMain = buildValueNoise(2026, 16);
+  const noiseWarpX = buildValueNoise(8888, 8);
+  const noiseWarpY = buildValueNoise(9999, 8);
+  const noiseWidth = buildValueNoise(777, 6);
+
+  // Diagonal slash trajectory "丿": Upper-Right (u ~ 0.82) to Lower-Left (u ~ 0.18)
+  const bandCenterX = (v) => 0.82 - 0.64 * v + 0.07 * Math.sin(v * 4.5 + 0.3);
+
+  const imgData = ctx.createImageData(bw, bh);
+  const pixels = imgData.data;
+
+  // Rich organic cosmic dust palette matching shapeof.world
+  const cloudBase = [28, 25, 38]; // Deep dark violet
+  const cloudMid = [72, 65, 84]; // Mid ash purple-gray
+  const cloudHighlight = [135, 124, 142]; // Wispy cloud highlight
+
+  for (let py = 0; py < bh; py += 1) {
+    const v = py / (bh - 1);
+    const center = bandCenterX(v);
+    const widthWobble = 1 + 0.5 * (fbm(noiseWidth, v * 3.5, 0.5, 3, 2, 0.5) - 0.5);
+    const halfWidth = 0.26 * widthWobble;
+
+    // Smooth border edge fade mask (eliminates any rectangular box border cutoff)
+    const edgeY = Math.sin(v * Math.PI);
+
+    for (let px = 0; px < bw; px += 1) {
+      const u = px / (bw - 1);
+      const edgeX = Math.sin(u * Math.PI);
+      const borderFade = Math.pow(edgeX * edgeY, 0.65); // 0 at borders!
+
+      const nx = u * 6;
+      const ny = v * 8;
+
+      // Domain warping for organic fluid cloud wisps
+      const wx = nx + (fbm(noiseWarpX, nx * 0.6, ny * 0.6, 3, 2, 0.5) - 0.5) * 1.2;
+      const wy = ny + (fbm(noiseWarpY, nx * 0.6, ny * 0.6, 3, 2, 0.5) - 0.5) * 1.2;
+
+      let cloudVal = fbm(noiseMain, wx, wy, 6, 2.2, 0.5);
+      cloudVal = Math.pow(Math.max(0, cloudVal), 1.35);
+
+      const dist = (u - center) / halfWidth;
+      const mask = Math.exp(-0.55 * dist * dist);
+      const intensity = Math.min(1, cloudVal * mask);
+
+      let r, g, b;
+      if (intensity < 0.4) {
+        const t = intensity / 0.4;
+        r = cloudBase[0] * t;
+        g = cloudBase[1] * t;
+        b = cloudBase[2] * t;
+      } else if (intensity < 0.78) {
+        const t = (intensity - 0.4) / 0.38;
+        r = cloudBase[0] + (cloudMid[0] - cloudBase[0]) * t;
+        g = cloudBase[1] + (cloudMid[1] - cloudBase[1]) * t;
+        b = cloudBase[2] + (cloudMid[2] - cloudBase[2]) * t;
+      } else {
+        const t = (intensity - 0.78) / 0.22;
+        r = cloudMid[0] + (cloudHighlight[0] - cloudMid[0]) * t;
+        g = cloudMid[1] + (cloudHighlight[1] - cloudMid[1]) * t;
+        b = cloudMid[2] + (cloudHighlight[2] - cloudMid[2]) * t;
+      }
+
+      const alpha = Math.min(0.75, intensity * 1.25) * borderFade;
+
+      const idx = (py * bw + px) * 4;
+      pixels[idx] = Math.round(r);
+      pixels[idx + 1] = Math.round(g);
+      pixels[idx + 2] = Math.round(b);
+      pixels[idx + 3] = Math.round(alpha * 255);
+    }
   }
-  ctx.restore();
+  ctx.putImageData(imgData, 0, 0);
 
   const texture = new THREE.CanvasTexture(canvas2d);
   texture.colorSpace = THREE.SRGBColorSpace;
@@ -341,19 +492,75 @@ function createSceneFourDustBand() {
   const group = new THREE.Group();
   group.renderOrder = -2;
 
+  const hazeTexture = createSceneFourDustHazeTexture();
+
+  // Primary "丿" slash diagonal cloud sprite
   const haze = new THREE.Sprite(new THREE.SpriteMaterial({
-    map: createSceneFourDustHazeTexture(),
+    map: hazeTexture,
     transparent: true,
-    opacity: 0.22,
+    opacity: 0.68,
     depthTest: false,
     depthWrite: false,
-    blending: THREE.NormalBlending,
+    blending: THREE.AdditiveBlending,
   }));
-  haze.position.set(-3.35, -0.12, -4.45);
-  haze.scale.set(3.4, 8.1, 1);
-  haze.rotation.z = -0.18;
+  haze.position.set(-0.6, 0.1, -4.5);
+  haze.scale.set(13.5, 16.5, 1);
+  haze.rotation.z = -0.58; // Diagonal "丿" slash tilt
   haze.renderOrder = -3;
   group.add(haze);
+
+  // Companion "丿" slash cloud sprite for volumetric depth
+  const depthHaze = new THREE.Sprite(new THREE.SpriteMaterial({
+    map: hazeTexture,
+    transparent: true,
+    opacity: 0.35,
+    depthTest: false,
+    depthWrite: false,
+    blending: THREE.AdditiveBlending,
+  }));
+  depthHaze.position.set(-0.2, 0.3, -3.9);
+  depthHaze.scale.set(14.2, 17.5, 1);
+  depthHaze.rotation.z = -0.52;
+  depthHaze.renderOrder = -2;
+  group.add(depthHaze);
+
+  // 3D Volumetric Dust Particles along the "丿" slash trajectory
+  const randomAt = (index, salt) => {
+    const value = Math.sin(index * 12.9898 + salt * 78.233) * 43758.5453;
+    return value - Math.floor(value);
+  };
+  const count = 750;
+  const positions = [];
+  const colors = [];
+  for (let i = 0; i < count; i += 1) {
+    const t = randomAt(i, 40.2); // 0 (top-right) to 1 (bottom-left)
+    const spread = Math.pow(randomAt(i, 41.7), 1.2) * 2.5;
+    // Trajectory from Top-Right (2.8, 4.5) to Bottom-Left (-3.8, -4.8)
+    const centerX = 2.8 - t * 6.6;
+    const centerY = 4.5 - t * 9.3;
+    const x = centerX + (randomAt(i, 42.9) - 0.5) * spread;
+    const y = centerY + (randomAt(i, 44.1) - 0.5) * spread * 1.2;
+    const z = -4.8 + (randomAt(i, 45.4) - 0.5) * 2.8;
+    const intensity = 0.2 + randomAt(i, 46.8) * 0.48;
+    positions.push(x, y, z);
+    colors.push(intensity * 0.88, intensity * 0.84, intensity * 1.0);
+  }
+  const volumeGeometry = new THREE.BufferGeometry();
+  volumeGeometry.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
+  volumeGeometry.setAttribute('color', new THREE.Float32BufferAttribute(colors, 3));
+  const volume = new THREE.Points(volumeGeometry, new THREE.PointsMaterial({
+    map: createGaussianTexture(),
+    size: 0.18,
+    sizeAttenuation: true,
+    vertexColors: true,
+    transparent: true,
+    opacity: 0.35,
+    depthTest: false,
+    depthWrite: false,
+    blending: THREE.AdditiveBlending,
+  }));
+  volume.renderOrder = -1;
+  group.add(volume);
 
   return group;
 }
@@ -393,6 +600,8 @@ function createSceneFourLineLayer(pathDefinitions, layerName, group) {
       isUpperTriangle: ORION_UPPER_TRIANGLE_PATH_INDICES.has(index),
       isLowerShadow,
       layerName,
+      pathPoints,
+      emphasis,
     };
     glow.userData.radius = 0.05 * emphasis;
     group.add(glow);
@@ -434,26 +643,34 @@ function createSceneFourField(texture, labelsRoot) {
   const dustBand = createSceneFourDustBand();
   group.add(dustBand);
 
+  const starTextures = new Map();
+  ORION_STARS.forEach((def) => {
+    starTextures.set(def.color, createOrionStarTexture(def.color, 256));
+  });
+  const flatStarTexture = createOrionStarTexture(0x4b6fa8, 128);
+
   const stars = ORION_STARS.map((definition, index) => {
     const star = new THREE.Group();
+    const starTex = starTextures.get(definition.color);
+
     const halo = new THREE.Sprite(new THREE.SpriteMaterial({
-      map: texture,
-      color: definition.color,
+      map: starTex,
       transparent: true,
       opacity: 0,
       depthWrite: false,
       blending: THREE.AdditiveBlending,
     }));
-    halo.scale.setScalar(definition.scale * 4.8);
+    halo.scale.setScalar(definition.scale * 3.8);
+
     const core = new THREE.Sprite(new THREE.SpriteMaterial({
-      map: texture,
-      color: definition.color,
+      map: starTex,
       transparent: true,
       opacity: 0,
       depthWrite: false,
       blending: THREE.AdditiveBlending,
     }));
-    core.scale.setScalar(definition.scale);
+    core.scale.setScalar(definition.scale * 1.5);
+
     star.add(halo, core);
     star.position.set(...definition.position);
     star.userData = {
@@ -472,6 +689,30 @@ function createSceneFourField(texture, labelsRoot) {
     labelsRoot.appendChild(label);
     star.userData.label = label;
     return star;
+  });
+
+  const flatStars = ORION_STARS.map((definition, index) => {
+    const flatStar = new THREE.Sprite(new THREE.SpriteMaterial({
+      map: flatStarTexture,
+      transparent: true,
+      opacity: 0,
+      depthWrite: false,
+      blending: THREE.AdditiveBlending,
+    }));
+    flatStar.scale.setScalar(definition.scale * 1.8);
+    const coord = ORION_STAR_COORD_MAP[definition.latin.toLowerCase()] ?? ORION_STAR_COORD_MAP[definition.label];
+    if (coord) {
+      flatStar.position.set(...coord.start);
+    } else {
+      flatStar.position.set(...definition.position);
+    }
+    flatStar.userData = {
+      definition,
+      index,
+      phase: index * 0.73,
+    };
+    group.add(flatStar);
+    return flatStar;
   });
 
   const flatLines = createSceneFourLineLayer(ORION_FLAT_PATHS, 'flat', group);
@@ -548,6 +789,7 @@ function createSceneFourField(texture, labelsRoot) {
     group,
     backdrop,
     stars,
+    flatStars,
     flatLines,
     depthLines,
     distanceLine,
@@ -2105,6 +2347,7 @@ function updateSceneFour(field, state, frameTime, boundaryField) {
     group,
     backdrop,
     stars,
+    flatStars,
     flatLines,
     depthLines,
     distanceLine,
@@ -2122,6 +2365,11 @@ function updateSceneFour(field, state, frameTime, boundaryField) {
       star.userData.label.style.opacity = '0';
       star.userData.label.style.display = 'none';
     });
+    if (flatStars) {
+      flatStars.forEach((flatStar) => {
+        flatStar.material.opacity = 0;
+      });
+    }
     distanceLabel.style.opacity = '0';
     distanceLabel.style.display = 'none';
     return;
@@ -2142,42 +2390,96 @@ function updateSceneFour(field, state, frameTime, boundaryField) {
   imprint.position.copy(sphereCenter).lerp(imprintTarget, imprintMove);
   imprint.rotation.z = Math.sin((frameTime - SCENE_FOUR_START) * 0.7) * 0.08;
 
+  const morphProgress = state.morphProgress ?? 0;
+
+  const flatLinePositions = new Map();
+  const depthLinePositions = new Map();
+
+  const shadowOffset = new THREE.Vector3(-0.035, -0.025, -0.04);
+
   stars.forEach((star) => {
     const {
       halo,
       core,
       phase,
       label,
-      startPosition,
     } = star.userData;
     const brightness = star.userData.definition.brightness ?? 1;
-    star.position.copy(startPosition);
+    const name = star.userData.definition.latin.toLowerCase();
+    const coord = ORION_STAR_COORD_MAP[name] ?? ORION_STAR_COORD_MAP[star.userData.definition.label];
+    if (coord) {
+      const startVec = new THREE.Vector3(...coord.start);
+      const targetVec = new THREE.Vector3(...coord.target);
+      // Foreground bright star moves RIGHTWARDS from startVec (left) to targetVec (upright posture on right)
+      const currentPos = startVec.clone().lerp(targetVec, morphProgress);
+
+      star.position.copy(currentPos);
+      depthLinePositions.set(coord.target, currentPos);
+    } else {
+      star.position.set(...star.userData.definition.position);
+    }
     const pulse = 0.9 + Math.sin(frameTime * 1.6 + phase) * 0.1;
-    core.material.opacity = Math.min(1, state.constellationReveal * pulse * 0.92 * brightness);
-    halo.material.opacity = Math.min(1, state.constellationReveal * pulse * 0.24 * brightness);
+    core.material.opacity = Math.min(1, state.constellationReveal * pulse * 0.96 * brightness);
+    halo.material.opacity = Math.min(1, state.constellationReveal * pulse * 0.85 * brightness);
     const labelOpacity = state.constellationReveal * (0.52 + pulse * 0.22);
     label.style.opacity = `${labelOpacity}`;
     label.style.display = 'block';
   });
+
+  if (flatStars) {
+    flatStars.forEach((flatStar) => {
+      const name = flatStar.userData.definition.latin.toLowerCase();
+      const coord = ORION_STAR_COORD_MAP[name] ?? ORION_STAR_COORD_MAP[flatStar.userData.definition.label];
+      if (coord) {
+        const targetVec = new THREE.Vector3(...coord.target);
+        // Background shadow star stands fixed at upright posture + shadowOffset
+        const shadowPos = targetVec.clone().add(shadowOffset);
+        flatStar.position.copy(shadowPos);
+        flatLinePositions.set(coord.start, shadowPos);
+
+        const pulse = 0.9 + Math.sin(frameTime * 1.6 + flatStar.userData.phase) * 0.1;
+        const flatOpacity = Math.min(1, state.constellationReveal * pulse * 0.45);
+        flatStar.material.opacity = flatOpacity;
+      }
+    });
+  }
 
   const distanceStart = stars[3].position;
   distanceLine.geometry.setFromPoints([distanceStart, imprint.position]);
   distanceLine.computeLineDistances();
   distanceAnchor.position.copy(distanceStart).lerp(imprint.position, 0.52);
 
-  const updateLineLayer = (layerLines, layerOpacity) => layerLines.forEach((line, index) => {
-    const lineDelay = index * 0.075;
-    const lineProgress = smoothstep(THREE.MathUtils.clamp(
-      (state.lineReveal - lineDelay) / 0.24,
-      0,
-      1,
-    ));
-    const lineStrength = line.userData.isUpperTriangle ? 0.62 : 0.5;
-    line.material.opacity = lineProgress * lineStrength * layerOpacity;
-    line.userData.glow.material.opacity = lineProgress * lineStrength * layerOpacity * 0.4;
-  });
-  updateLineLayer(flatLines, state.flatLineOpacity);
-  updateLineLayer(depthLines, state.depthLineOpacity);
+  const updateTubeLineLayer = (layerLines, layerPositions, layerOpacity) => {
+    layerLines.forEach((line, index) => {
+      const lineDelay = index * 0.075;
+      const lineProgress = smoothstep(THREE.MathUtils.clamp(
+        (state.lineReveal - lineDelay) / 0.24,
+        0,
+        1,
+      ));
+      const lineStrength = line.userData.isUpperTriangle ? 0.62 : 0.5;
+      const opacity = lineProgress * lineStrength * layerOpacity;
+      line.material.opacity = opacity;
+      if (line.userData.glow) {
+        line.userData.glow.material.opacity = opacity * 0.4;
+      }
+
+      const pathPoints = line.userData.pathPoints;
+      if (pathPoints) {
+        const currentPoints = pathPoints.map((pt) => layerPositions.get(pt) ?? new THREE.Vector3(...pt));
+        line.geometry.dispose();
+        line.geometry = createSceneFourTube(currentPoints, 0.014 * line.userData.emphasis);
+
+        if (line.userData.glow) {
+          line.userData.glow.geometry.dispose();
+          line.userData.glow.geometry = createSceneFourTube(currentPoints, 0.05 * line.userData.emphasis);
+        }
+      }
+    });
+  };
+
+  updateTubeLineLayer(flatLines, flatLinePositions, state.flatLineOpacity);
+  updateTubeLineLayer(depthLines, depthLinePositions, state.depthLineOpacity);
   distanceLine.material.opacity = state.distanceReveal * 0.54;
   distanceLabel.style.opacity = `${state.distanceReveal * 0.7}`;
   distanceLabel.style.display = 'block';
@@ -2470,6 +2772,8 @@ function resize() {
   drawDeepSky();
 }
 
+let virtualTime = 0;
+
 function setPlaying(playing) {
   isPlaying = playing;
   playButton.innerHTML = `<i data-lucide="${playing ? 'pause' : 'play'}"></i>`;
@@ -2484,14 +2788,22 @@ playButton.addEventListener('click', async () => {
     setPlaying(false);
     return;
   }
-  if (audio.currentTime >= SCENE_DURATION - 0.02) audio.currentTime = 0;
-  await audio.play();
+  if (virtualTime >= SCENE_DURATION - 0.02 || audio.currentTime >= SCENE_DURATION - 0.02) {
+    audio.currentTime = 0;
+    virtualTime = 0;
+  }
+  try {
+    await audio.play();
+  } catch (error) {
+    console.warn('音频播放受阻，已启用自动画面时钟:', error);
+  }
   setPlaying(true);
 });
 
 resetButton.addEventListener('click', () => {
   audio.pause();
   audio.currentTime = 0;
+  virtualTime = 0;
   setPlaying(false);
   updateScene(0, celestialMotionTime);
 });
@@ -2500,6 +2812,7 @@ audio.addEventListener('timeupdate', () => {
   if (audio.currentTime >= SCENE_DURATION) {
     audio.pause();
     audio.currentTime = SCENE_DURATION;
+    virtualTime = SCENE_DURATION;
     setPlaying(false);
   }
 });
@@ -2512,8 +2825,23 @@ const motionClock = new THREE.Clock();
 let celestialMotionTime = 0;
 
 function render() {
-  const time = Math.min(audio.currentTime, SCENE_DURATION);
-  celestialMotionTime += Math.min(motionClock.getDelta(), 0.05);
+  const delta = Math.min(motionClock.getDelta(), 0.05);
+  celestialMotionTime += delta;
+
+  if (isPlaying) {
+    if (!audio.paused && audio.currentTime > 0) {
+      virtualTime = audio.currentTime;
+    } else {
+      virtualTime += delta;
+    }
+    if (virtualTime >= SCENE_DURATION) {
+      virtualTime = SCENE_DURATION;
+      audio.pause();
+      setPlaying(false);
+    }
+  }
+
+  const time = Math.min(virtualTime, SCENE_DURATION);
   updateScene(time, celestialMotionTime);
   renderer.render(scene, camera);
   requestAnimationFrame(render);

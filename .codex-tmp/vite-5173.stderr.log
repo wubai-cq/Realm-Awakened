@@ -1,0 +1,132 @@
+15:52:07 [vite] Pre-transform error: Failed to parse source for import analysis because the content contains invalid JS syntax. If you are using JSX, make sure to name the file with the .jsx or .tsx extension.
+  Plugin: vite:import-analysis
+  File: D:/code/Realm-Awakened/src/main.js:2651:0
+15:52:07 [vite] Internal server error: Failed to parse source for import analysis because the content contains invalid JS syntax. If you are using JSX, make sure to name the file with the .jsx or .tsx extension.
+  Plugin: vite:import-analysis
+  File: D:/code/Realm-Awakened/src/main.js:2651:0
+      at TransformPluginContext._formatLog (file:///D:/code/Realm-Awakened/node_modules/.pnpm/vite@6.4.3/node_modules/vite/dist/node/chunks/dep-Dm0c1Wj2.js:42658:41)
+      at TransformPluginContext.error (file:///D:/code/Realm-Awakened/node_modules/.pnpm/vite@6.4.3/node_modules/vite/dist/node/chunks/dep-Dm0c1Wj2.js:42655:16)
+      at TransformPluginContext.transform (file:///D:/code/Realm-Awakened/node_modules/.pnpm/vite@6.4.3/node_modules/vite/dist/node/chunks/dep-Dm0c1Wj2.js:40585:14)
+      at async EnvironmentPluginContainer.transform (file:///D:/code/Realm-Awakened/node_modules/.pnpm/vite@6.4.3/node_modules/vite/dist/node/chunks/dep-Dm0c1Wj2.js:42453:18)
+      at async loadAndTransform (file:///D:/code/Realm-Awakened/node_modules/.pnpm/vite@6.4.3/node_modules/vite/dist/node/chunks/dep-Dm0c1Wj2.js:35845:27)
+      at async viteTransformMiddleware (file:///D:/code/Realm-Awakened/node_modules/.pnpm/vite@6.4.3/node_modules/vite/dist/node/chunks/dep-Dm0c1Wj2.js:37369:24)
+15:52:15 [vite] Pre-transform error: Failed to parse source for import analysis because the content contains invalid JS syntax. If you are using JSX, make sure to name the file with the .jsx or .tsx extension.
+  Plugin: vite:import-analysis
+  File: D:/code/Realm-Awakened/src/main.js:1:1
+  1  |  import * as THREE from 'three';
+     |  ^
+  2  |  import { createIcons, Pause, Play, RotateCcw } from 'lucide';
+  3  |  import {
+15:52:15 [vite] Internal server error: Failed to parse source for import analysis because the content contains invalid JS syntax. If you are using JSX, make sure to name the file with the .jsx or .tsx extension.
+  Plugin: vite:import-analysis
+  File: D:/code/Realm-Awakened/src/main.js:1:1
+  1  |  import * as THREE from 'three';
+     |  ^
+  2  |  import { createIcons, Pause, Play, RotateCcw } from 'lucide';
+  3  |  import {
+      at TransformPluginContext._formatLog (file:///D:/code/Realm-Awakened/node_modules/.pnpm/vite@6.4.3/node_modules/vite/dist/node/chunks/dep-Dm0c1Wj2.js:42658:41)
+      at TransformPluginContext.error (file:///D:/code/Realm-Awakened/node_modules/.pnpm/vite@6.4.3/node_modules/vite/dist/node/chunks/dep-Dm0c1Wj2.js:42655:16)
+      at TransformPluginContext.transform (file:///D:/code/Realm-Awakened/node_modules/.pnpm/vite@6.4.3/node_modules/vite/dist/node/chunks/dep-Dm0c1Wj2.js:40585:14)
+      at async EnvironmentPluginContainer.transform (file:///D:/code/Realm-Awakened/node_modules/.pnpm/vite@6.4.3/node_modules/vite/dist/node/chunks/dep-Dm0c1Wj2.js:42453:18)
+      at async loadAndTransform (file:///D:/code/Realm-Awakened/node_modules/.pnpm/vite@6.4.3/node_modules/vite/dist/node/chunks/dep-Dm0c1Wj2.js:35845:27)
+      at async viteTransformMiddleware (file:///D:/code/Realm-Awakened/node_modules/.pnpm/vite@6.4.3/node_modules/vite/dist/node/chunks/dep-Dm0c1Wj2.js:37369:24)
+15:52:24 [vite] Pre-transform error: Failed to parse source for import analysis because the content contains invalid JS syntax. If you are using JSX, make sure to name the file with the .jsx or .tsx extension.
+  Plugin: vite:import-analysis
+  File: D:/code/Realm-Awakened/src/main.js:1:1
+  1  |  import * as THREE from 'three';
+     |  ^
+  2  |  import { createIcons, Pause, Play, RotateCcw } from 'lucide';
+  3  |  import {
+15:52:24 [vite] Internal server error: Failed to parse source for import analysis because the content contains invalid JS syntax. If you are using JSX, make sure to name the file with the .jsx or .tsx extension.
+  Plugin: vite:import-analysis
+  File: D:/code/Realm-Awakened/src/main.js:1:1
+  1  |  import * as THREE from 'three';
+     |  ^
+  2  |  import { createIcons, Pause, Play, RotateCcw } from 'lucide';
+  3  |  import {
+      at TransformPluginContext._formatLog (file:///D:/code/Realm-Awakened/node_modules/.pnpm/vite@6.4.3/node_modules/vite/dist/node/chunks/dep-Dm0c1Wj2.js:42658:41)
+      at TransformPluginContext.error (file:///D:/code/Realm-Awakened/node_modules/.pnpm/vite@6.4.3/node_modules/vite/dist/node/chunks/dep-Dm0c1Wj2.js:42655:16)
+      at TransformPluginContext.transform (file:///D:/code/Realm-Awakened/node_modules/.pnpm/vite@6.4.3/node_modules/vite/dist/node/chunks/dep-Dm0c1Wj2.js:40585:14)
+      at async EnvironmentPluginContainer.transform (file:///D:/code/Realm-Awakened/node_modules/.pnpm/vite@6.4.3/node_modules/vite/dist/node/chunks/dep-Dm0c1Wj2.js:42453:18)
+      at async loadAndTransform (file:///D:/code/Realm-Awakened/node_modules/.pnpm/vite@6.4.3/node_modules/vite/dist/node/chunks/dep-Dm0c1Wj2.js:35845:27)
+      at async viteTransformMiddleware (file:///D:/code/Realm-Awakened/node_modules/.pnpm/vite@6.4.3/node_modules/vite/dist/node/chunks/dep-Dm0c1Wj2.js:37369:24)
+15:52:38 [vite] Pre-transform error: Failed to parse source for import analysis because the content contains invalid JS syntax. If you are using JSX, make sure to name the file with the .jsx or .tsx extension.
+  Plugin: vite:import-analysis
+  File: D:/code/Realm-Awakened/src/main.js:1:1
+  1  |  import * as THREE from 'three';
+     |  ^
+  2  |  import { createIcons, Pause, Play, RotateCcw } from 'lucide';
+  3  |  import {
+15:52:38 [vite] Internal server error: Failed to parse source for import analysis because the content contains invalid JS syntax. If you are using JSX, make sure to name the file with the .jsx or .tsx extension.
+  Plugin: vite:import-analysis
+  File: D:/code/Realm-Awakened/src/main.js:1:1
+  1  |  import * as THREE from 'three';
+     |  ^
+  2  |  import { createIcons, Pause, Play, RotateCcw } from 'lucide';
+  3  |  import {
+      at TransformPluginContext._formatLog (file:///D:/code/Realm-Awakened/node_modules/.pnpm/vite@6.4.3/node_modules/vite/dist/node/chunks/dep-Dm0c1Wj2.js:42658:41)
+      at TransformPluginContext.error (file:///D:/code/Realm-Awakened/node_modules/.pnpm/vite@6.4.3/node_modules/vite/dist/node/chunks/dep-Dm0c1Wj2.js:42655:16)
+      at TransformPluginContext.transform (file:///D:/code/Realm-Awakened/node_modules/.pnpm/vite@6.4.3/node_modules/vite/dist/node/chunks/dep-Dm0c1Wj2.js:40585:14)
+      at async EnvironmentPluginContainer.transform (file:///D:/code/Realm-Awakened/node_modules/.pnpm/vite@6.4.3/node_modules/vite/dist/node/chunks/dep-Dm0c1Wj2.js:42453:18)
+      at async loadAndTransform (file:///D:/code/Realm-Awakened/node_modules/.pnpm/vite@6.4.3/node_modules/vite/dist/node/chunks/dep-Dm0c1Wj2.js:35845:27)
+      at async viteTransformMiddleware (file:///D:/code/Realm-Awakened/node_modules/.pnpm/vite@6.4.3/node_modules/vite/dist/node/chunks/dep-Dm0c1Wj2.js:37369:24)
+15:52:47 [vite] Pre-transform error: Failed to parse source for import analysis because the content contains invalid JS syntax. If you are using JSX, make sure to name the file with the .jsx or .tsx extension.
+  Plugin: vite:import-analysis
+  File: D:/code/Realm-Awakened/src/main.js:1:1
+  1  |  import * as THREE from 'three';
+     |  ^
+  2  |  import { createIcons, Pause, Play, RotateCcw } from 'lucide';
+  3  |  import {
+15:52:47 [vite] Internal server error: Failed to parse source for import analysis because the content contains invalid JS syntax. If you are using JSX, make sure to name the file with the .jsx or .tsx extension.
+  Plugin: vite:import-analysis
+  File: D:/code/Realm-Awakened/src/main.js:1:1
+  1  |  import * as THREE from 'three';
+     |  ^
+  2  |  import { createIcons, Pause, Play, RotateCcw } from 'lucide';
+  3  |  import {
+      at TransformPluginContext._formatLog (file:///D:/code/Realm-Awakened/node_modules/.pnpm/vite@6.4.3/node_modules/vite/dist/node/chunks/dep-Dm0c1Wj2.js:42658:41)
+      at TransformPluginContext.error (file:///D:/code/Realm-Awakened/node_modules/.pnpm/vite@6.4.3/node_modules/vite/dist/node/chunks/dep-Dm0c1Wj2.js:42655:16)
+      at TransformPluginContext.transform (file:///D:/code/Realm-Awakened/node_modules/.pnpm/vite@6.4.3/node_modules/vite/dist/node/chunks/dep-Dm0c1Wj2.js:40585:14)
+      at async EnvironmentPluginContainer.transform (file:///D:/code/Realm-Awakened/node_modules/.pnpm/vite@6.4.3/node_modules/vite/dist/node/chunks/dep-Dm0c1Wj2.js:42453:18)
+      at async loadAndTransform (file:///D:/code/Realm-Awakened/node_modules/.pnpm/vite@6.4.3/node_modules/vite/dist/node/chunks/dep-Dm0c1Wj2.js:35845:27)
+      at async viteTransformMiddleware (file:///D:/code/Realm-Awakened/node_modules/.pnpm/vite@6.4.3/node_modules/vite/dist/node/chunks/dep-Dm0c1Wj2.js:37369:24)
+16:05:34 [vite] Pre-transform error: Failed to parse source for import analysis because the content contains invalid JS syntax. If you are using JSX, make sure to name the file with the .jsx or .tsx extension.
+  Plugin: vite:import-analysis
+  File: D:/code/Realm-Awakened/src/main.js:1:1
+  1  |  import * as THREE from 'three';
+     |  ^
+  2  |  import { createIcons, Pause, Play, RotateCcw } from 'lucide';
+  3  |  import {
+16:05:34 [vite] Internal server error: Failed to parse source for import analysis because the content contains invalid JS syntax. If you are using JSX, make sure to name the file with the .jsx or .tsx extension.
+  Plugin: vite:import-analysis
+  File: D:/code/Realm-Awakened/src/main.js:1:1
+  1  |  import * as THREE from 'three';
+     |  ^
+  2  |  import { createIcons, Pause, Play, RotateCcw } from 'lucide';
+  3  |  import {
+      at TransformPluginContext._formatLog (file:///D:/code/Realm-Awakened/node_modules/.pnpm/vite@6.4.3/node_modules/vite/dist/node/chunks/dep-Dm0c1Wj2.js:42658:41)
+      at TransformPluginContext.error (file:///D:/code/Realm-Awakened/node_modules/.pnpm/vite@6.4.3/node_modules/vite/dist/node/chunks/dep-Dm0c1Wj2.js:42655:16)
+      at TransformPluginContext.transform (file:///D:/code/Realm-Awakened/node_modules/.pnpm/vite@6.4.3/node_modules/vite/dist/node/chunks/dep-Dm0c1Wj2.js:40585:14)
+      at async EnvironmentPluginContainer.transform (file:///D:/code/Realm-Awakened/node_modules/.pnpm/vite@6.4.3/node_modules/vite/dist/node/chunks/dep-Dm0c1Wj2.js:42453:18)
+      at async loadAndTransform (file:///D:/code/Realm-Awakened/node_modules/.pnpm/vite@6.4.3/node_modules/vite/dist/node/chunks/dep-Dm0c1Wj2.js:35845:27)
+      at async viteTransformMiddleware (file:///D:/code/Realm-Awakened/node_modules/.pnpm/vite@6.4.3/node_modules/vite/dist/node/chunks/dep-Dm0c1Wj2.js:37369:24)
+16:05:35 [vite] Pre-transform error: Failed to parse source for import analysis because the content contains invalid JS syntax. If you are using JSX, make sure to name the file with the .jsx or .tsx extension.
+  Plugin: vite:import-analysis
+  File: D:/code/Realm-Awakened/src/main.js:1:1
+  1  |  import * as THREE from 'three';
+     |  ^
+  2  |  import { createIcons, Pause, Play, RotateCcw } from 'lucide';
+  3  |  import {
+16:05:35 [vite] Internal server error: Failed to parse source for import analysis because the content contains invalid JS syntax. If you are using JSX, make sure to name the file with the .jsx or .tsx extension.
+  Plugin: vite:import-analysis
+  File: D:/code/Realm-Awakened/src/main.js:1:1
+  1  |  import * as THREE from 'three';
+     |  ^
+  2  |  import { createIcons, Pause, Play, RotateCcw } from 'lucide';
+  3  |  import {
+      at TransformPluginContext._formatLog (file:///D:/code/Realm-Awakened/node_modules/.pnpm/vite@6.4.3/node_modules/vite/dist/node/chunks/dep-Dm0c1Wj2.js:42658:41)
+      at TransformPluginContext.error (file:///D:/code/Realm-Awakened/node_modules/.pnpm/vite@6.4.3/node_modules/vite/dist/node/chunks/dep-Dm0c1Wj2.js:42655:16)
+      at TransformPluginContext.transform (file:///D:/code/Realm-Awakened/node_modules/.pnpm/vite@6.4.3/node_modules/vite/dist/node/chunks/dep-Dm0c1Wj2.js:40585:14)
+      at async EnvironmentPluginContainer.transform (file:///D:/code/Realm-Awakened/node_modules/.pnpm/vite@6.4.3/node_modules/vite/dist/node/chunks/dep-Dm0c1Wj2.js:42453:18)
+      at async loadAndTransform (file:///D:/code/Realm-Awakened/node_modules/.pnpm/vite@6.4.3/node_modules/vite/dist/node/chunks/dep-Dm0c1Wj2.js:35845:27)
+      at async viteTransformMiddleware (file:///D:/code/Realm-Awakened/node_modules/.pnpm/vite@6.4.3/node_modules/vite/dist/node/chunks/dep-Dm0c1Wj2.js:37369:24)

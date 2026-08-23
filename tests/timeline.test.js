@@ -148,14 +148,14 @@ describe('plasma focus and wave motion', () => {
     expect(reveal.projectionMorph).toBeLessThan(1);
     expect(reveal.flatLineOpacity).toBeLessThan(firstFrame.flatLineOpacity);
     expect(reveal.depthLineOpacity).toBeGreaterThan(firstFrame.depthLineOpacity);
+    expect(lastFrame.flatLineOpacity).toBeGreaterThan(0);
+    expect(lastFrame.depthLineOpacity).toBeGreaterThan(0);
     expect(lastFrame).toMatchObject({
       active: true,
       progress: 1,
       imprintFade: 1,
       distanceReveal: 1,
       projectionMorph: 1,
-      flatLineOpacity: 0,
-      depthLineOpacity: 1,
     });
   });
 

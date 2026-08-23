@@ -14,6 +14,7 @@ export const PYRAMID_RAYS = [[0, 1], [0, 2], [0, 3]];
 // collision instead of a state change.
 export const SCENE_THREE_IMPACT_DELAY = 0.62;
 export const SCENE_THREE_IMPACT_TRAVEL = 0.84;
+export const SCENE_FOUR_MORPH_DURATION = SCENE_DURATION - SCENE_FOUR_START;
 
 const FOCUS_SCHEDULE = [
   { start: 0, end: 1.35, nodes: [7, 0, 2, 5] },
@@ -124,17 +125,20 @@ export function getSceneThreeState(time) {
   };
 }
 
+export function getSceneFourMorphProgress(time) {
+  const t = Math.min(1, Math.max(0, (time - SCENE_FOUR_START) / SCENE_FOUR_MORPH_DURATION));
+  return t * t * (3 - 2 * t);
+}
+
 export function getSceneFourState(time) {
   const elapsed = Math.max(0, time - SCENE_FOUR_START);
-  const duration = SCENE_DURATION - SCENE_FOUR_START;
+  const duration = SCENE_FOUR_MORPH_DURATION;
   const progress = Math.min(1, elapsed / duration);
   const constellationReveal = smoothRange(time, SCENE_FOUR_START + 0.28, SCENE_FOUR_START + 2.2);
   const lineReveal = time >= SCENE_FOUR_START ? 1 : 0;
-  // The opening keeps both the flat Earth-view graph and the depth graph on
-  // screen. They cross-fade over a dedicated two-second camera transition.
   const projectionMorph = smoothRange(time, SCENE_FOUR_START + 0.72, SCENE_FOUR_START + 2.72);
-  const flatLineOpacity = 0.78 * (1 - projectionMorph);
-  const depthLineOpacity = 0.24 + 0.76 * projectionMorph;
+  const flatLineOpacity = 0.78 * (1 - 0.35 * projectionMorph);
+  const depthLineOpacity = 0.35 + 0.65 * projectionMorph;
   const imprintFade = smoothRange(time, SCENE_FOUR_START + 1.25, SCENE_FOUR_START + 4.8);
   const distanceReveal = smoothRange(time, SCENE_FOUR_START + 2.15, SCENE_FOUR_START + 4.1);
   const parallaxProgress = smoothRange(
@@ -143,6 +147,8 @@ export function getSceneFourState(time) {
     SCENE_DURATION - 0.35,
   );
 
+  const morphProgress = getSceneFourMorphProgress(time);
+
   return {
     active: time >= SCENE_FOUR_START && time <= SCENE_DURATION,
     progress,
@@ -150,12 +156,12 @@ export function getSceneFourState(time) {
     constellationReveal,
     lineReveal,
     projectionMorph,
-    flatLineOpacity,
+    flatLineOpacity: 0.78 * (1 - 0.35 * morphProgress),
     depthLineOpacity,
-    // Kept as a read-only compatibility alias for older UI/tests.
     auxiliaryMorph: projectionMorph,
     imprintFade,
     distanceReveal,
     parallaxProgress,
+    morphProgress,
   };
 }
