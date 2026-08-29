@@ -11,6 +11,7 @@ import {
   SCENE_THREE_END,
   SCENE_FOUR_START,
   SCENE_FIVE_START,
+  SCENE_FIVE_THIRD_TURN,
   SCENE_FOUR_START_OFFSET_LY,
   SCENE_FOUR_END_OFFSET_LY,
   SCENE_THREE_IMPACT_TRAVEL,
@@ -205,6 +206,7 @@ const epochMarkerEl = document.querySelector('#epoch-marker');
 const cosmicClockEl = document.querySelector('#cosmic-clock');
 const cosmicClockValueEl = document.querySelector('#cosmic-clock-value');
 const gravityNoteEl = document.querySelector('#gravity-note');
+const milkyWayWashEl = document.querySelector('.milky-way-wash');
 const baryonVelocityEl = document.querySelector('#baryon-velocity');
 const impactMarkerEl = document.querySelector('#impact-marker');
 const impactCountEl = document.querySelector('#impact-count');
@@ -1009,26 +1011,26 @@ function createSceneFiveWeb() {
   // Clustered plus uniform seeds: dense clusters shrink their local cells into
   // small foam pockets while the sparse regions keep large ones, so the foam
   // reads as 大大小小 cells instead of one even grid.
-  const clusterCenters = Array.from({ length: 7 }, () => new THREE.Vector3(
+  const clusterCenters = Array.from({ length: 9 }, () => new THREE.Vector3(
     (random() * 2 - 1) * BOUNDS * 0.6,
     (random() * 2 - 1) * BOUNDS * 0.6,
     (random() * 2 - 1) * BOUNDS * 0.6,
   ));
   const seeds = [];
   let attempts = 0;
-  while (seeds.length < 300 && attempts < 14000) {
+  while (seeds.length < 780 && attempts < 46000) {
     attempts += 1;
     const point = new THREE.Vector3();
-    if (random() < 0.58) {
+    if (random() < 0.62) {
       const center = clusterCenters[Math.floor(random() * clusterCenters.length)];
-      point.set(center.x + gaussian() * 0.6, center.y + gaussian() * 0.6, center.z + gaussian() * 0.6);
+      point.set(center.x + gaussian() * 0.58, center.y + gaussian() * 0.58, center.z + gaussian() * 0.58);
     } else {
       point.set(random() * 2 - 1, random() * 2 - 1, random() * 2 - 1).multiplyScalar(BOUNDS);
     }
     point.clampScalar(-BOUNDS + 0.06, BOUNDS - 0.06);
     let crowded = false;
     for (const existing of seeds) {
-      if (existing.distanceToSquared(point) < 0.0169) {
+      if (existing.distanceToSquared(point) < 0.0121) {
         crowded = true;
         break;
       }
@@ -1098,11 +1100,15 @@ function createSceneFiveWeb() {
     const hubness = Math.min(node.degree, 9);
     positions.push(point.x, point.y, point.z);
     starts.push(gaussian() * 0.09, gaussian() * 0.09, gaussian() * 0.09);
-    sizes.push((50 + hubness * 5 + onCube * 11) * (0.88 + random() * 0.26));
-    bases.push(Math.min(1.05, 0.62 + hubness * 0.05 + onCube * 0.07 + random() * 0.1));
+    const isHub = hubness >= 6;
+    sizes.push((20 + hubness * 4 + onCube * 7) * (0.9 + random() * 0.3) * (isHub ? 1.35 : 1));
+    bases.push(Math.min(0.72, (0.6 + hubness * 0.07 + onCube * 0.08 + random() * 0.12 + (isHub ? 0.16 : 0)) * 0.52));
     phases.push(random() * Math.PI * 2);
     orders.push(Math.min(1, point.length() / radiusNorm) * 0.72 + random() * 0.28);
-    lightThresholds.push(Math.min(0.78, random() * 0.34 + (hubness >= 6 ? 0 : 0.08)));
+    // Ignition is selective: hubs go first, then scattered nodes — most wall
+    // dust only shimmers, keeping the lit subset distributed instead of total.
+    const hubFloor = hubness >= 6 ? 0.3 + random() * 0.35 : 0.45 + random() * 0.55;
+    lightThresholds.push(Math.min(1.25, hubFloor));
     hopAmps.push(0.13 + random() * 0.1);
     hopPhases.push(((point.y + BOUNDS) / (BOUNDS * 2)) * 2 + random() * 0.7);
   });
@@ -1112,7 +1118,7 @@ function createSceneFiveWeb() {
     if (length < 0.1) return;
     const start = nodeList[a].position;
     const end = nodeList[b].position;
-    const dotCount = Math.max(1, Math.round(length / 0.13) - 1);
+    const dotCount = Math.max(1, Math.round(length / 0.12) - 1);
     for (let index = 1; index <= dotCount; index += 1) {
       const t = index / (dotCount + 1);
       const x = start.x + (end.x - start.x) * t;
@@ -1120,11 +1126,11 @@ function createSceneFiveWeb() {
       const z = start.z + (end.z - start.z) * t;
       positions.push(x, y, z);
       starts.push(gaussian() * 0.09, gaussian() * 0.09, gaussian() * 0.09);
-      sizes.push(28 + random() * 16);
-      bases.push(0.4 + random() * 0.2);
+      sizes.push(13 + random() * 8);
+      bases.push(0.22 + random() * 0.12);
       phases.push(random() * Math.PI * 2);
       orders.push(Math.min(1, Math.sqrt(x * x + y * y + z * z) / radiusNorm) * 0.72 + random() * 0.28);
-      lightThresholds.push(Math.min(0.8, 0.24 + random() * 0.4));
+      lightThresholds.push(Math.min(1.3, 0.7 + random() * 0.45));
       hopAmps.push(0.1 + random() * 0.09);
       hopPhases.push(((y + BOUNDS) / (BOUNDS * 2)) * 2 + random() * 0.7);
     }
@@ -1160,7 +1166,7 @@ function createSceneFiveWeb() {
       const area = polygonArea(verts);
       if (area < 0.008) return;
       const boundary = faceOnCube(verts);
-      const dotCount = Math.min(420, Math.round(area * (boundary ? 26 : 17)));
+      const dotCount = Math.min(160, Math.round(area * (boundary ? 8 : 2)));
       for (let index = 0; index < dotCount; index += 1) {
         const tri = 1 + Math.floor(random() * (verts.length - 1));
         let r1 = Math.sqrt(random());
@@ -1179,11 +1185,11 @@ function createSceneFiveWeb() {
         );
         positions.push(samplePoint.x, samplePoint.y, samplePoint.z);
         starts.push(gaussian() * 0.09, gaussian() * 0.09, gaussian() * 0.09);
-        sizes.push((17 + random() * 11) * (boundary ? 1.16 : 1));
-        bases.push((0.2 + random() * 0.16) * (boundary ? 1.32 : 1));
+        sizes.push((13 + random() * 8) * (boundary ? 1.18 : 1));
+        bases.push((0.22 + random() * 0.15) * (boundary ? 1.34 : 1));
         phases.push(random() * Math.PI * 2);
         orders.push(Math.min(1, samplePoint.length() / radiusNorm) * 0.72 + random() * 0.28);
-        lightThresholds.push(Math.min(0.82, 0.38 + random() * 0.44));
+        lightThresholds.push(Math.min(1.35, 0.9 + random() * 0.45));
         hopAmps.push(0.07 + random() * 0.07);
         hopPhases.push(((samplePoint.y + BOUNDS) / (BOUNDS * 2)) * 2 + random() * 0.7);
       }
@@ -1228,40 +1234,49 @@ function createSceneFiveWeb() {
       uniform float uTime;
       uniform float uPixelRatio;
       varying vec3 vColor;
+      varying float vLift;
       varying float vAlpha;
       void main() {
         float local = clamp((uAssemble - aOrder * 0.62) / 0.38, 0.0, 1.0);
         float ease = local * local * (3.0 - 2.0 * local);
-        float overshoot = 1.0 + 0.16 * sin(ease * 3.14159) * (1.0 - local);
+        float overshoot = 1.0 + 0.1 * sin(ease * 3.14159) * (1.0 - local);
         vec3 foamPosition = mix(aStart, position, ease * overshoot);
         float hop = max(0.0, sin(uHopClock * 7.3 - aHopPhase)) * aHopAmp * uHopEnv * ease;
         foamPosition.y += hop;
         vec4 mvPosition = modelViewMatrix * vec4(foamPosition, 1.0);
         gl_PointSize = aSize * uPixelRatio / max(1.0, -mvPosition.z);
         gl_Position = projectionMatrix * mvPosition;
-        float lift = clamp((uLight * 1.3 - aLightThreshold) / 0.34, 0.0, 1.0);
+        float lift = clamp((uLight * 1.15 - aLightThreshold) / 0.26, 0.0, 1.0);
         lift = lift * lift * (3.0 - 2.0 * lift);
         float shimmer = 1.0 + sin(uTime * 2.3 + aPhase) * 0.055;
-        float brightness = aBase * (0.62 + lift * 1.05) * shimmer;
+        float brightness = min(1.12, aBase * (0.62 + lift * 0.45) * shimmer);
         vec3 foamWhite = vec3(0.87, 0.94, 1.0);
         // Meissa (觜宿一) is the cue's reference star in Scene 04. Its
         // pale blue-white tint blooms into the foam only as each point's
         // distributed-light threshold is crossed.
         vColor = brightness * mix(foamWhite, uPointLightColor, lift * 0.9);
+        vLift = lift;
         vAlpha = ease;
       }
     `,
     fragmentShader: `
       uniform float uOpacity;
       varying vec3 vColor;
+      varying float vLift;
       varying float vAlpha;
       void main() {
-        float distanceToCenter = length(gl_PointCoord - vec2(0.5));
-        float core = 1.0 - smoothstep(0.0, 0.17, distanceToCenter);
-        float halo = 1.0 - smoothstep(0.12, 0.5, distanceToCenter);
-        float alpha = (core * 0.88 + halo * 0.24) * uOpacity * vAlpha;
+        vec2 coord = gl_PointCoord - vec2(0.5);
+        float distanceToCenter = length(coord);
+        float core = 1.0 - smoothstep(0.0, 0.3, distanceToCenter);
+        float halo = 1.0 - smoothstep(0.3, 0.5, distanceToCenter);
+        // 4-point diffraction spikes (Meissa's 十字星芒 in Scene 04), blooming
+        // only on the ignited subset of the foam.
+        float spikeH = (1.0 - smoothstep(0.0, 0.05, abs(coord.y))) * (1.0 - smoothstep(0.07, 0.5, abs(coord.x)));
+        float spikeV = (1.0 - smoothstep(0.0, 0.05, abs(coord.x))) * (1.0 - smoothstep(0.07, 0.5, abs(coord.y)));
+        float cross = max(spikeH, spikeV) * vLift;
+        float alpha = (core * 1.0 + halo * 0.08 + cross * 1.15) * uOpacity * vAlpha;
         if (alpha < 0.012) discard;
-        gl_FragColor = vec4(vColor, alpha);
+        gl_FragColor = vec4(vColor + vec3(cross * 0.65), alpha);
       }
     `,
     transparent: true,
@@ -1273,12 +1288,180 @@ function createSceneFiveWeb() {
   points.frustumCulled = false;
   group.add(points);
 
-  // 神经网 web: the foam's own cell edges plus a few hub-to-hub axons that
-  // cross the voids, so the woven net reads as neural tissue rather than a
-  // regular wireframe. Growth order follows a breadth-first wave out of the
+  // 神经网 web: filament strands bundle along wandering trunk paths that run
+  // diagonally through the cube, leaving real voids between the bundles, like
+  // the cosmic-web reference. Off-trunk cell edges survive only sparsely as
+  // background dust web. Growth order follows a breadth-first wave out of the
   // densest hub, like signal spreading through tissue.
   const linkSet = new Set();
   const finalEdges = [];
+  // 树状结构 — space colonization (Runions et al. 2007): the Voronoi corner
+  // cloud is the attractor field, and one silk root at the upper-left grows
+  // branch by branch under a single rule — each tip moves along the
+  // normalized sum of its nearby attractor pulls, and divergent pulls split
+  // the tip into up to three children. Foam edges near the grown skeleton
+  // weave the leaf flesh around it.
+  const netTurn = SCENE_FIVE_THIRD_TURN;
+  const netQuat = new THREE.Quaternion().setFromEuler(
+    new THREE.Euler(netTurn * 0.3, netTurn, netTurn * 0.16),
+  );
+  const netQuatInverse = netQuat.clone().invert();
+  const influence = 1.0;
+  const influenceSq = influence * influence;
+  const killDist = 0.16;
+  const killSq = killDist * killDist;
+  const stepLen = 0.13;
+  const rootPoint = new THREE.Vector3(-1.95, 1.62, 0.42).applyQuaternion(netQuatInverse);
+  const attractors = nodeList
+    .map((node) => node.position)
+    .filter((p) => p.distanceTo(rootPoint) > 0.35);
+  const alive = attractors.map(() => true);
+  const gridCell = 0.5;
+  const gridKey = (p) => `${Math.floor(p.x / gridCell)},${Math.floor(p.y / gridCell)},${Math.floor(p.z / gridCell)}`;
+  const tips = [rootPoint.clone()];
+  const grown = [];
+  const tipGrid = new Map();
+  const rebuildTipGrid = () => {
+    tipGrid.clear();
+    tips.forEach((tip, ti) => {
+      const k = gridKey(tip);
+      if (!tipGrid.has(k)) tipGrid.set(k, []);
+      tipGrid.get(k).push(ti);
+    });
+  };
+  const nearbyTips = (p) => {
+    const cx = Math.floor(p.x / gridCell);
+    const cy = Math.floor(p.y / gridCell);
+    const cz = Math.floor(p.z / gridCell);
+    const found = [];
+    for (let dx = -1; dx <= 1; dx += 1) {
+      for (let dy = -1; dy <= 1; dy += 1) {
+        for (let dz = -1; dz <= 1; dz += 1) {
+          const list = tipGrid.get(`${cx + dx},${cy + dy},${cz + dz}`);
+          if (list) found.push(...list);
+        }
+      }
+    }
+    return found;
+  };
+  const growthIterations = 80;
+  // Whole-tree drift toward the lower right on screen, applied as a mild
+  // lerp on every growth step so the tree sweeps diagonally instead of
+  // blobbing around its root.
+  const growthBias = new THREE.Vector3(0.9, -0.38, -0.12)
+    .normalize()
+    .applyQuaternion(netQuatInverse);
+  for (let iter = 0; iter < growthIterations; iter += 1) {
+    rebuildTipGrid();
+    const pullDirs = new Map();
+    for (let ai = 0; ai < attractors.length; ai += 1) {
+      if (!alive[ai]) continue;
+      const p = attractors[ai];
+      let bestTip = -1;
+      let bestDistSq = influenceSq;
+      for (const ti of nearbyTips(p)) {
+        const distSq = p.distanceToSquared(tips[ti]);
+        if (distSq < bestDistSq) {
+          bestDistSq = distSq;
+          bestTip = ti;
+        }
+      }
+      if (bestTip < 0) continue;
+      if (bestDistSq < killSq) {
+        alive[ai] = false;
+        continue;
+      }
+      const dir = p.clone().sub(tips[bestTip]).normalize();
+      if (pullDirs.has(bestTip)) pullDirs.get(bestTip).push(dir);
+      else pullDirs.set(bestTip, [dir]);
+    }
+    if (pullDirs.size === 0) break;
+    const nextTips = [];
+    tips.forEach((tip, ti) => {
+      const dirs = pullDirs.get(ti);
+      if (!dirs) {
+        nextTips.push(tip.clone());
+        return;
+      }
+      // Cluster divergent pulls: directions wider than ~44° spawn separate
+      // children, so the limb branches like real tissue instead of growing a
+      // single averaged vine.
+      const clusters = [];
+      for (const d of dirs) {
+        let best = null;
+        let bestDot = 0.72;
+        for (const c of clusters) {
+          const dot = c.sum.dot(d) / (c.sum.length() || 1);
+          if (dot > bestDot) {
+            bestDot = dot;
+            best = c;
+          }
+        }
+        if (best) best.sum.add(d);
+        else if (clusters.length < 3) clusters.push({ sum: d.clone() });
+        else {
+          let nearest = clusters[0];
+          let nearestDot = -2;
+          for (const c of clusters) {
+            const dot = c.sum.dot(d) / (c.sum.length() || 1);
+            if (dot > nearestDot) {
+              nearestDot = dot;
+              nearest = c;
+            }
+          }
+          nearest.sum.add(d);
+        }
+      }
+      clusters.forEach((c) => {
+        const dir = c.sum.normalize().lerp(growthBias, 0.24).normalize();
+        const next = tip.clone().addScaledVector(dir, stepLen);
+        next.clampScalar(-BOUNDS + 0.04, BOUNDS - 0.04);
+        if (grown.length < 7000) grown.push({ a: tip, b: next, iter });
+        nextTips.push(next);
+      });
+    });
+    tips.length = 0;
+    nextTips.forEach((tip) => tips.push(tip));
+  }
+  const lastGrowthIter = grown.reduce((max, g) => Math.max(max, g.iter), 0);
+  const skeletonSegments = [];
+  grown.forEach(({ a, b, iter }) => {
+    skeletonSegments.push({
+      a,
+      b,
+      delay: 0.05 + (iter / Math.max(1, lastGrowthIter)) * 0.5,
+      kind: iter < 5 ? 1 : 0.5,
+    });
+  });
+  // Leaf flesh: Voronoi nodes within reach of the grown skeleton count as
+  // foliage; edges between two foliage nodes weave the canopy mesh.
+  const flesh = new Set();
+  const nodeGrid = new Map();
+  nodeList.forEach((node, index) => {
+    const k = gridKey(node.position);
+    if (!nodeGrid.has(k)) nodeGrid.set(k, []);
+    nodeGrid.get(k).push(index);
+  });
+  const markFlesh = (p) => {
+    const cx = Math.floor(p.x / gridCell);
+    const cy = Math.floor(p.y / gridCell);
+    const cz = Math.floor(p.z / gridCell);
+    for (let dx = -1; dx <= 1; dx += 1) {
+      for (let dy = -1; dy <= 1; dy += 1) {
+        for (let dz = -1; dz <= 1; dz += 1) {
+          const list = nodeGrid.get(`${cx + dx},${cy + dy},${cz + dz}`);
+          if (!list) continue;
+          list.forEach((idx) => {
+            if (nodeList[idx].position.distanceToSquared(p) < 0.09) flesh.add(idx);
+          });
+        }
+      }
+    }
+  };
+  grown.forEach(({ a, b }) => {
+    markFlesh(a);
+    markFlesh(b);
+  });
   const isCubeOutlineEdge = (a, b) => {
     // Suppress edges that run along the six outer cube planes. The foam points
     // still define that silhouette; the later neural-web pass should read as
@@ -1291,8 +1474,10 @@ function createSceneFiveWeb() {
     return false;
   };
   edgeRegistry.forEach(({ a, b, length }) => {
-    if (length < 0.14 || length > 2.6) return;
+    if (length < 0.06 || length > 1.3) return;
     if (isCubeOutlineEdge(nodeList[a], nodeList[b])) return;
+    const inFlesh = flesh.has(a) && flesh.has(b);
+    if (!inFlesh && random() > 0.1) return;
     const key = `${a}:${b}`;
     if (linkSet.has(key)) return;
     linkSet.add(key);
@@ -1305,9 +1490,9 @@ function createSceneFiveWeb() {
     .slice(0, 56);
   let axons = 0;
   hubs.forEach((hub) => {
-    if (axons >= 84) return;
+    if (axons >= 24) return;
     let best = null;
-    let bestDistance = 2.1;
+    let bestDistance = 1.5;
     hubs.forEach((other) => {
       if (other === hub) return;
       const minIndex = Math.min(hub.index, other.index);
@@ -1363,6 +1548,7 @@ function createSceneFiveWeb() {
   const lineEnds = [];
   const lineT = [];
   const lineDelays = [];
+  const lineSkeleton = [];
   finalEdges.forEach(({ a, b }) => {
     const pa = nodeList[a].position;
     const pb = nodeList[b].position;
@@ -1372,6 +1558,19 @@ function createSceneFiveWeb() {
     lineEnds.push(pb.x, pb.y, pb.z, pb.x, pb.y, pb.z);
     lineT.push(0, 1);
     lineDelays.push(delay, delay);
+    lineSkeleton.push(0, 0);
+  });
+
+  // Draw the space-colonization skeleton: early limbs render as the bright
+  // silk trunk, later generations as finer branch silk (kind 0.5); the
+  // filtered Voronoi edges above weave the leaf flesh around them.
+  skeletonSegments.forEach(({ a, b, delay, kind }) => {
+    linePositions.push(a.x, a.y, a.z, b.x, b.y, b.z);
+    lineStarts.push(a.x, a.y, a.z, a.x, a.y, a.z);
+    lineEnds.push(b.x, b.y, b.z, b.x, b.y, b.z);
+    lineT.push(0, 1);
+    lineDelays.push(delay, delay);
+    lineSkeleton.push(kind, kind);
   });
 
   const lineGeometry = new THREE.BufferGeometry();
@@ -1380,6 +1579,7 @@ function createSceneFiveWeb() {
   lineGeometry.setAttribute('aEnd', new THREE.Float32BufferAttribute(lineEnds, 3));
   lineGeometry.setAttribute('aT', new THREE.Float32BufferAttribute(lineT, 1));
   lineGeometry.setAttribute('aDelay', new THREE.Float32BufferAttribute(lineDelays, 1));
+  lineGeometry.setAttribute('aSkeleton', new THREE.Float32BufferAttribute(lineSkeleton, 1));
   const lines = new THREE.LineSegments(lineGeometry, new THREE.ShaderMaterial({
     uniforms: {
       uReveal: { value: 0 },
@@ -1391,26 +1591,41 @@ function createSceneFiveWeb() {
       attribute vec3 aEnd;
       attribute float aT;
       attribute float aDelay;
+      attribute float aSkeleton;
       uniform float uReveal;
       varying float vGlow;
+      varying float vDepth;
+      varying float vSkeleton;
       void main() {
         float growth = clamp((uReveal - aDelay * 0.72) / 0.28, 0.0, 1.0);
         vec3 webPosition = mix(aStart, aEnd, min(aT, growth));
         vGlow = 0.45 + 0.55 * growth;
-        gl_Position = projectionMatrix * modelViewMatrix * vec4(webPosition, 1.0);
+        vSkeleton = aSkeleton;
+        vec4 mvPosition = modelViewMatrix * vec4(webPosition, 1.0);
+        vDepth = clamp(-mvPosition.z / 19.0, 0.0, 1.0);
+        gl_Position = projectionMatrix * mvPosition;
       }
     `,
     fragmentShader: `
       uniform float uColorShift;
       uniform float uOpacity;
       varying float vGlow;
+      varying float vDepth;
+      varying float vSkeleton;
       void main() {
         vec3 webWhite = vec3(0.97, 1.0, 0.985);
-        vec3 webBlue = vec3(0.42, 0.8, 0.97);
+        vec3 webBlue = vec3(0.30, 0.76, 1.0);
         vec3 color = mix(webWhite, webBlue, uColorShift);
-        float alpha = uOpacity * vGlow;
+        // Tree hierarchy: the silk trunk glows brightest, leaf ribs sit in
+        // between, and the foam flesh recedes into the background.
+        float isTrunk = step(0.75, vSkeleton);
+        float isBranch = step(0.25, vSkeleton) * (1.0 - isTrunk);
+        float fillDim = mix(0.38, 1.0, isBranch + isTrunk);
+        float boost = 1.0 + isBranch * 0.25 + isTrunk * 0.85;
+        color = mix(color, vec3(1.0), isTrunk * 0.32 + isBranch * 0.1);
+        float alpha = uOpacity * vGlow * mix(1.0, 0.6, vDepth) * fillDim * boost;
         if (alpha < 0.01) discard;
-        gl_FragColor = vec4(color * (0.72 + 0.5 * vGlow), alpha);
+        gl_FragColor = vec4(color * (1.05 + 0.5 * vGlow), alpha);
       }
     `,
     transparent: true,
@@ -1421,6 +1636,14 @@ function createSceneFiveWeb() {
   lines.frustumCulled = false;
   group.add(lines);
 
+  window.__webDebug = {
+    seeds: seeds.length,
+    edges: finalEdges.length,
+    skeleton: skeletonSegments.length,
+    flesh: flesh.size,
+    growthIters: lastGrowthIter,
+    nodes: nodeList.length,
+  };
   return { group, points, lines };
 }
 
@@ -3184,18 +3407,18 @@ function updateSceneFive(web, state, frameTime, field) {
   web.group.rotation.set(state.rotation * 0.3, state.rotation, state.rotation * 0.16);
 
   const foamUniforms = web.points.material.uniforms;
+  const weaveProgress = smoothstep(THREE.MathUtils.clamp(state.networkReveal, 0, 1));
   foamUniforms.uAssemble.value = smoothstep(THREE.MathUtils.clamp(state.dispersal, 0, 1));
   foamUniforms.uHopClock.value = state.hopClock;
   foamUniforms.uHopEnv.value = state.hop;
   foamUniforms.uLight.value = light;
   foamUniforms.uTime.value = frameTime;
-  foamUniforms.uOpacity.value = 0.7 + light * 0.3;
+  foamUniforms.uOpacity.value = Math.max(0.32, 0.7 - weaveProgress * 0.34 + light * 0.42);
 
   const webUniforms = web.lines.material.uniforms;
-  const reveal = smoothstep(THREE.MathUtils.clamp(state.networkReveal, 0, 1));
-  webUniforms.uReveal.value = reveal;
+  webUniforms.uReveal.value = weaveProgress;
   webUniforms.uColorShift.value = smoothstep(THREE.MathUtils.clamp(state.lineColorShift, 0, 1));
-  webUniforms.uOpacity.value = reveal * (0.5 + light * 0.34);
+  webUniforms.uOpacity.value = Math.min(1, weaveProgress * 1.05);
 }
 
 function updateWaveEquation(time) {
@@ -3244,6 +3467,7 @@ function updateScene(time, motionTime = time) {
     : { ...sceneFour, active: false };
   const sceneFiveVisible = sceneFive.active && frameTime > SCENE_FIVE_START;
   deepSkyRoot.style.opacity = sceneFourVisible || sceneFiveVisible ? '1' : '0';
+  milkyWayWashEl.style.opacity = sceneFiveVisible ? '0.05' : '';
   const storyTime = frameTime >= SCENE_ONE_END ? recombination.waveTime : frameTime;
   const sceneThreeTransition = THREE.MathUtils.smoothstep(frameTime, SCENE_TWO_END, SCENE_TWO_END + 0.52);
   const oldFieldVisibility = 1 - sceneThreeTransition;
@@ -3291,7 +3515,7 @@ function updateScene(time, motionTime = time) {
     cosmicClockEl.style.opacity = sceneFiveVisible ? '1' : '0';
     gravityNoteEl.style.opacity = sceneFiveVisible ? '1' : '0';
     if (sceneFiveVisible) {
-      cosmicClockValueEl.textContent = sceneFive.networkReveal > 0.4 ? 't ≈ 118.5 亿年' : 't ≈ 2.4 亿年';
+      cosmicClockValueEl.textContent = sceneFive.lineColorShift > 0.2 ? 't ≈ 118.5 亿年' : 't ≈ 2.4 亿年';
     }
   }
   const focus = getSelectionAtTime(frameTime);

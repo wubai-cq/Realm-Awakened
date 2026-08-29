@@ -1,0 +1,54 @@
+<style>
+  .network-grid { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:18px; margin-top:18px; }
+  .network-card { background:#070b12; border:1px solid rgba(151,220,255,.22); border-radius:8px; padding:14px; cursor:pointer; transition:border-color .2s, transform .2s; }
+  .network-card:hover { border-color:rgba(151,220,255,.8); transform:translateY(-2px); }
+  .network-card h3 { margin:0 0 8px; color:#dff8ff; font-size:16px; }
+  .network-card p { margin:8px 0 0; color:rgba(220,236,244,.7); font-size:12px; line-height:1.5; }
+  .network-card svg { width:100%; height:210px; display:block; background:#000; border-radius:5px; }
+  .hint { color:rgba(220,236,244,.66); font-size:13px; }
+  @media (max-width: 900px) { .network-grid { grid-template-columns:1fr; } }
+</style>
+<h2>第五段神经网连线方向</h2>
+<p class="subtitle">三种都保留空洞、节点、纤维和断裂边缘，只改变主干组织方式</p>
+<div class="network-grid" data-multiselect>
+  <div class="network-card" data-choice="A" onclick="toggleSelect(this)">
+    <svg viewBox="0 0 360 210" aria-label="中央主干与枝梢">
+      <rect width="360" height="210" fill="#000"/>
+      <g stroke="#a8efff" stroke-width="1.5" fill="none" opacity=".9">
+        <path d="M42 174 L78 142 L98 112 L137 94 L176 100 L214 76 L260 58 L318 42"/>
+        <path d="M76 143 L54 112 L62 75 M98 112 L112 70 L142 40 M137 94 L149 126 L141 168 M176 100 L184 136 L222 174 M214 76 L236 104 L290 113 M260 58 L278 25"/>
+        <path d="M54 112 L30 96 M62 75 L82 46 M112 70 L102 27 M149 126 L176 151 M184 136 L204 185 M236 104 L260 131 M290 113 L336 128"/>
+      </g>
+      <g fill="#e9fbff"><circle cx="98" cy="112" r="4"/><circle cx="176" cy="100" r="5"/><circle cx="260" cy="58" r="4"/></g>
+    </svg>
+    <h3>A · 中央主干 + 周边枝梢</h3>
+    <p>一条偏斜主干贯穿画面，短枝向外脱落。最像参考图的“主丝 + 分叉 + 长尾”。</p>
+  </div>
+  <div class="network-card" data-choice="B" onclick="toggleSelect(this)">
+    <svg viewBox="0 0 360 210" aria-label="多核心团簇与跨空洞纤维">
+      <rect width="360" height="210" fill="#000"/>
+      <g stroke="#a8efff" stroke-width="1.25" fill="none" opacity=".88">
+        <path d="M54 70 L82 48 L120 58 L98 88 L64 101 Z M206 50 L236 34 L270 57 L250 88 L214 79 Z M126 154 L157 126 L191 145 L176 180 L138 176 Z"/>
+        <path d="M98 88 L157 126 L214 79 M120 58 L206 50 M64 101 L126 154 M250 88 L306 120 M191 145 L270 57"/>
+        <path d="M32 42 L82 48 L120 20 M270 57 L325 34 M306 120 L344 158 M54 150 L126 154 L92 196"/>
+      </g>
+      <g fill="#e9fbff"><circle cx="98" cy="88" r="4"/><circle cx="214" cy="79" r="4"/><circle cx="157" cy="126" r="5"/></g>
+    </svg>
+    <h3>B · 多核心团簇 + 跨空洞纤维</h3>
+    <p>三个亮节点团簇彼此牵引，中间留出黑色空洞。空间感最强，但主方向更分散。</p>
+  </div>
+  <div class="network-card" data-choice="C" onclick="toggleSelect(this)">
+    <svg viewBox="0 0 360 210" aria-label="纵向脊柱与横向突触带">
+      <rect width="360" height="210" fill="#000"/>
+      <g stroke="#a8efff" stroke-width="1.35" fill="none" opacity=".9">
+        <path d="M178 18 L164 50 L183 82 L168 112 L187 145 L171 190"/>
+        <path d="M164 50 L112 36 L72 58 L34 45 M183 82 L231 65 L278 76 L330 58 M168 112 L116 108 L76 132 L28 120 M187 145 L236 128 L282 148 L336 138"/>
+        <path d="M112 36 L126 12 M72 58 L54 86 M231 65 L246 28 M278 76 L310 94 M116 108 L96 78 M76 132 L58 168 M236 128 L254 172 M282 148 L314 184"/>
+      </g>
+      <g fill="#e9fbff"><circle cx="178" cy="18" r="3"/><circle cx="183" cy="82" r="5"/><circle cx="187" cy="145" r="4"/></g>
+    </svg>
+    <h3>C · 纵向脊柱 + 横向突触带</h3>
+    <p>一条垂直信号脊柱贯穿泡沫方体，横向纤维像突触带扩散。方向明确，神经感最强。</p>
+  </div>
+</div>
+<p class="hint">请点击你要采用的方向；也可以直接回复“以 A 为主、混合 B 的多核心”。</p>

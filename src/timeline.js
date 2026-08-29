@@ -194,6 +194,7 @@ export const SCENE_FIVE_BLUE_START = 31.7;
 export const SCENE_FIVE_BLUE_END = 33.3;
 export const SCENE_FIVE_THIRD_TURN = Math.PI * 2 / 3;
 export const SCENE_FIVE_POINT_LIGHT_COLOR = 0xdde9ff;
+export const SCENE_FIVE_NETWORK_STYLE = 'central-spine-branches';
 
 export function getSceneFiveState(time) {
   const progress = Math.min(1, Math.max(0, (time - SCENE_FIVE_START) / (SCENE_FIVE_END - SCENE_FIVE_START)));

@@ -24,6 +24,7 @@ import {
   SCENE_FIVE_START,
   SCENE_FIVE_THIRD_TURN,
   SCENE_FIVE_POINT_LIGHT_COLOR,
+  SCENE_FIVE_NETWORK_STYLE,
   getSceneFiveState,
 } from '../src/timeline.js';
 
@@ -196,6 +197,10 @@ describe('plasma focus and wave motion', () => {
 describe('scene five timeline', () => {
   it('uses Meissa star light for the lifted point cue', () => {
     expect(SCENE_FIVE_POINT_LIGHT_COLOR).toBe(0xdde9ff);
+  });
+
+  it('selects the reference-inspired central spine network', () => {
+    expect(SCENE_FIVE_NETWORK_STYLE).toBe('central-spine-branches');
   });
 
   it('keeps scene five locked to 00:24.600-00:36.667', () => {
