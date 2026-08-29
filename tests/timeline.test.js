@@ -21,6 +21,10 @@ import {
   TOTAL_FRAMES,
   getSubtitleAtTime,
   getWaveState,
+  SCENE_FIVE_START,
+  SCENE_FIVE_THIRD_TURN,
+  SCENE_FIVE_POINT_LIGHT_COLOR,
+  getSceneFiveState,
 } from '../src/timeline.js';
 
 describe('scene one timeline', () => {
@@ -29,8 +33,8 @@ describe('scene one timeline', () => {
     expect(SCENE_TWO_END).toBe(10.733);
     expect(SCENE_THREE_END).toBe(16.167);
     expect(SCENE_FOUR_START).toBe(SCENE_THREE_END);
-    expect(SCENE_DURATION).toBe(24.6);
-    expect(TOTAL_FRAMES).toBe(738);
+    expect(SCENE_DURATION).toBe(36.667);
+    expect(TOTAL_FRAMES).toBe(1100);
     expect(getSubtitleAtTime(0.1)).toBe('');
     expect(getSubtitleAtTime(0.14)).toBe('很久以前，宇宙是一锅');
     expect(getSubtitleAtTime(2.5)).toBe('滚烫的等离子体——');
@@ -131,7 +135,7 @@ describe('plasma focus and wave motion', () => {
   it('starts the Orion distance-imprint scene after the frozen core endpoint', () => {
     const firstFrame = getSceneFourState(SCENE_FOUR_START);
     const reveal = getSceneFourState(SCENE_FOUR_START + 1.4);
-    const lastFrame = getSceneFourState(SCENE_DURATION);
+    const lastFrame = getSceneFourState(SCENE_FIVE_START);
 
     expect(firstFrame).toMatchObject({
       active: true,
@@ -148,7 +152,7 @@ describe('plasma focus and wave motion', () => {
     expect(reveal.projectionMorph).toBeLessThan(1);
     expect(reveal.flatLineOpacity).toBeLessThan(firstFrame.flatLineOpacity);
     expect(reveal.depthLineOpacity).toBeGreaterThan(firstFrame.depthLineOpacity);
-    expect(lastFrame.flatLineOpacity).toBeGreaterThan(0);
+    expect(lastFrame.flatLineOpacity).toBe(0);
     expect(lastFrame.depthLineOpacity).toBeGreaterThan(0);
     expect(lastFrame).toMatchObject({
       active: true,
@@ -160,9 +164,9 @@ describe('plasma focus and wave motion', () => {
   });
 
   it('moves the scene-four observation point from left to right after the opening reveal', () => {
-    const firstFrame = getSceneFourState(SCENE_FOUR_START + 0.85);
-    const middleFrame = getSceneFourState((SCENE_FOUR_START + SCENE_DURATION) / 2);
-    const lastFrame = getSceneFourState(SCENE_DURATION);
+    const firstFrame = getSceneFourState(SCENE_FOUR_START);
+    const middleFrame = getSceneFourState((SCENE_FOUR_START + SCENE_FIVE_START) / 2);
+    const lastFrame = getSceneFourState(SCENE_FIVE_START);
 
     expect(firstFrame.parallaxProgress).toBe(0);
     expect(middleFrame.parallaxProgress).toBeGreaterThan(0);
@@ -186,5 +190,59 @@ describe('plasma focus and wave motion', () => {
     expect(getCameraPushAtTime(1.7)).toBeCloseTo(1, 5);
     expect(getCameraPushAtTime(2.4)).toBeCloseTo(1, 5);
     expect(getCameraPushAtTime(3.7)).toBeCloseTo(2, 5);
+  });
+});
+
+describe('scene five timeline', () => {
+  it('uses Meissa star light for the lifted point cue', () => {
+    expect(SCENE_FIVE_POINT_LIGHT_COLOR).toBe(0xdde9ff);
+  });
+
+  it('keeps scene five locked to 00:24.600-00:36.667', () => {
+    expect(SCENE_FIVE_START).toBe(24.6);
+    expect(getSceneFiveState(24.6).active).toBe(true);
+    expect(getSceneFiveState(36.667).active).toBe(true);
+    expect(getSceneFiveState(24.59).active).toBe(false);
+    expect(getSceneFiveState(36.668).active).toBe(false);
+  });
+
+  it('walks the foam through assembly, hop, weave, cool-down and ignition', () => {
+    const assembling = getSceneFiveState(SCENE_FIVE_START + 1);
+    expect(assembling.dispersal).toBeGreaterThan(0);
+    expect(assembling.dispersal).toBeLessThan(1);
+    expect(assembling.rotation).toBe(0);
+    expect(assembling.networkReveal).toBe(0);
+
+    const formed = getSceneFiveState(28.8);
+    expect(formed.dispersal).toBe(1);
+
+    const hopping = getSceneFiveState(30);
+    expect(hopping.hop).toBeGreaterThan(0);
+    expect(hopping.hopClock).toBeGreaterThan(0);
+    expect(hopping.rotation).toBeGreaterThan(0);
+    expect(hopping.rotation).toBeLessThan(SCENE_FIVE_THIRD_TURN);
+
+    const turned = getSceneFiveState(32);
+    expect(turned.rotation).toBeCloseTo(SCENE_FIVE_THIRD_TURN, 6);
+
+    const weaving = getSceneFiveState(31);
+    expect(weaving.networkReveal).toBeGreaterThan(0);
+    expect(weaving.networkReveal).toBeLessThan(1);
+    expect(weaving.lineColorShift).toBe(0);
+
+    const blue = getSceneFiveState(33.4);
+    expect(blue.lineColorShift).toBe(1);
+
+    const firstLight = getSceneFiveState(32.18);
+    expect(firstLight.distributedLight).toBe(0);
+    const lit = getSceneFiveState(35.62);
+    expect(lit.distributedLight).toBe(1);
+    expect(lit.rotation).toBeCloseTo(SCENE_FIVE_THIRD_TURN, 6);
+  });
+
+  it('lights the net exactly on the narration cue for the lifted point of light', () => {
+    expect(getSceneFiveState(32.17).distributedLight).toBe(0);
+    expect(getSceneFiveState(33.9).distributedLight).toBeGreaterThan(0.3);
+    expect(getSceneFiveState(33.9).lift).toBeGreaterThan(0);
   });
 });

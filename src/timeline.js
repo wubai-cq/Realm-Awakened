@@ -3,7 +3,9 @@ export const SCENE_ONE_END = 6.4;
 export const SCENE_TWO_END = 10.733;
 export const SCENE_THREE_END = 16.167;
 export const SCENE_FOUR_START = SCENE_THREE_END;
-export const SCENE_DURATION = 24.6;
+export const SCENE_FIVE_START = 24.6;
+export const SCENE_FIVE_END = 36.667;
+export const SCENE_DURATION = SCENE_FIVE_END;
 export const TOTAL_FRAMES = Math.round(SCENE_DURATION * FPS);
 export const SCENE_FOUR_START_OFFSET_LY = -83.2;
 export const SCENE_FOUR_END_OFFSET_LY = -1.5;
@@ -16,7 +18,7 @@ export const PYRAMID_RAYS = [[0, 1], [0, 2], [0, 3]];
 // collision instead of a state change.
 export const SCENE_THREE_IMPACT_DELAY = 0.62;
 export const SCENE_THREE_IMPACT_TRAVEL = 0.84;
-export const SCENE_FOUR_MORPH_DURATION = SCENE_DURATION - SCENE_FOUR_START;
+export const SCENE_FOUR_MORPH_DURATION = SCENE_FIVE_START - SCENE_FOUR_START;
 
 const FOCUS_SCHEDULE = [
   { start: 0, end: 1.35, nodes: [7, 0, 2, 5] },
@@ -39,6 +41,11 @@ export const SUBTITLE_CUES = [
   { start: 18.32, end: 20.4, text: '极淡的印记，悄悄' },
   { start: 20.4, end: 22.36, text: '写进了星系与星系' },
   { start: 22.36, end: 23.66, text: '之间的距离里。' },
+  { start: 24.6, end: 26.9, text: '往后的138亿年，宇' },
+  { start: 26.9, end: 28.48, text: '宙都在把这道回声' },
+  { start: 28.48, end: 32.18, text: '织成一张网，而我们都是' },
+  { start: 32.18, end: 35, text: '网上那一点被轻轻托' },
+  { start: 35, end: 35.62, text: '起的光。' },
 ];
 
 export function getSubtitleAtTime(time) {
@@ -146,7 +153,7 @@ export function getSceneFourState(time) {
   const parallaxProgress = smoothRange(
     time,
     SCENE_FOUR_START + 1 / FPS,
-    SCENE_DURATION - 1 / FPS,
+    SCENE_FIVE_START - 1 / FPS,
   );
   const viewOffsetLy = SCENE_FOUR_START_OFFSET_LY
     + (SCENE_FOUR_END_OFFSET_LY - SCENE_FOUR_START_OFFSET_LY) * parallaxProgress;
@@ -154,7 +161,7 @@ export function getSceneFourState(time) {
   const morphProgress = getSceneFourMorphProgress(time);
 
   return {
-    active: time >= SCENE_FOUR_START && time <= SCENE_DURATION,
+    active: time >= SCENE_FOUR_START && time <= SCENE_FIVE_START,
     progress,
     reveal: smoothRange(time, SCENE_FOUR_START, SCENE_FOUR_START + 0.72),
     constellationReveal,
@@ -168,5 +175,43 @@ export function getSceneFourState(time) {
     parallaxProgress,
     viewOffsetLy,
     morphProgress,
+  };
+}
+
+// Scene five beats: the frozen imprint re-disperses into a 3D Voronoi foam
+// cube, the finished foam hops upward while the cube turns a third of a turn,
+// the foam cells weave into a white neural web that cools to blue, and the
+// nodes ignite in a distributed pattern as the narration reaches the lifted
+// point of light.
+export const SCENE_FIVE_ASSEMBLY_END = 28.8;
+export const SCENE_FIVE_HOP_START = 28.85;
+export const SCENE_FIVE_HOP_FADE_START = 31.6;
+export const SCENE_FIVE_HOP_END = 32.2;
+export const SCENE_FIVE_ROTATION_END = 31.9;
+export const SCENE_FIVE_NET_START = 29.6;
+export const SCENE_FIVE_NET_END = 32.5;
+export const SCENE_FIVE_BLUE_START = 31.7;
+export const SCENE_FIVE_BLUE_END = 33.3;
+export const SCENE_FIVE_THIRD_TURN = Math.PI * 2 / 3;
+export const SCENE_FIVE_POINT_LIGHT_COLOR = 0xdde9ff;
+
+export function getSceneFiveState(time) {
+  const progress = Math.min(1, Math.max(0, (time - SCENE_FIVE_START) / (SCENE_FIVE_END - SCENE_FIVE_START)));
+  const dispersal = smoothRange(time, SCENE_FIVE_START + 0.08, SCENE_FIVE_ASSEMBLY_END);
+  const hop = smoothRange(time, SCENE_FIVE_HOP_START, SCENE_FIVE_HOP_START + 0.5)
+    * (1 - smoothRange(time, SCENE_FIVE_HOP_FADE_START, SCENE_FIVE_HOP_END));
+  const distributedLight = smoothRange(time, 32.18, 35.62);
+  return {
+    active: time >= SCENE_FIVE_START && time <= SCENE_FIVE_END,
+    progress,
+    dispersal,
+    hop,
+    hopClock: Math.max(0, time - SCENE_FIVE_HOP_START),
+    rotation: smoothRange(time, SCENE_FIVE_HOP_START + 0.05, SCENE_FIVE_ROTATION_END) * SCENE_FIVE_THIRD_TURN,
+    networkReveal: smoothRange(time, SCENE_FIVE_NET_START, SCENE_FIVE_NET_END),
+    lineColorShift: smoothRange(time, SCENE_FIVE_BLUE_START, SCENE_FIVE_BLUE_END),
+    distributedLight,
+    lift: smoothRange(time, 32.18, 35.3),
+    reveal: 1,
   };
 }

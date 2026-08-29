@@ -10,16 +10,19 @@ import {
   SCENE_TWO_END,
   SCENE_THREE_END,
   SCENE_FOUR_START,
+  SCENE_FIVE_START,
   SCENE_FOUR_START_OFFSET_LY,
   SCENE_FOUR_END_OFFSET_LY,
   SCENE_THREE_IMPACT_TRAVEL,
   SCENE_DURATION,
   TOTAL_FRAMES,
   PYRAMID_RAYS,
+  SCENE_FIVE_POINT_LIGHT_COLOR,
   getCameraPushAtTime,
   getLabelRevealAtTime,
   getRecombinationState,
   getSceneFourState,
+  getSceneFiveState,
   getSceneThreeState,
   getSelectionAtTime,
   getSubtitleAtTime,
@@ -35,6 +38,8 @@ const WAVE_QUIET_COLOR = new THREE.Color(0xffffff);
 const FROZEN_WAVE_COLOR = new THREE.Color(0xc4f3d5);
 const waveDisplayColor = new THREE.Color();
 const BOUNDARY_SPIN_RATE = 4.2;
+const SCENE_FIVE_BOUNDS = 2.55;
+const sceneFivePointLightColor = new THREE.Color(SCENE_FIVE_POINT_LIGHT_COLOR);
 
 // Scene four follows the Orion reference project's data model: celestial
 // direction comes from RA/Dec while depth comes from measured distance.
@@ -197,6 +202,9 @@ const resetButton = document.querySelector('#reset');
 const eyebrowEl = document.querySelector('.eyebrow');
 const titleSubEl = document.querySelector('.title-sub');
 const epochMarkerEl = document.querySelector('#epoch-marker');
+const cosmicClockEl = document.querySelector('#cosmic-clock');
+const cosmicClockValueEl = document.querySelector('#cosmic-clock-value');
+const gravityNoteEl = document.querySelector('#gravity-note');
 const baryonVelocityEl = document.querySelector('#baryon-velocity');
 const impactMarkerEl = document.querySelector('#impact-marker');
 const impactCountEl = document.querySelector('#impact-count');
@@ -271,6 +279,8 @@ const wave = createWavePacket();
 celestialField.add(wave.group);
 const sceneFourField = createSceneFourField(texture, labelsRoot, sceneFourScreenGroup);
 scene.add(sceneFourField.group);
+const sceneFiveWeb = createSceneFiveWeb();
+sceneFourField.group.add(sceneFiveWeb.group);
 
 const labels = nodeDefinitions.map((definition) => {
   const label = document.createElement('div');
@@ -847,6 +857,571 @@ function createSceneFourField(texture, labelsRoot, screenGroup) {
     imprintRings,
     imprintTarget: SCENE_FOUR_IMPRINT_TARGET.clone(),
   };
+}
+
+// Clips one convex polygon against the half-space n·x <= d. Intersection
+// points are collected so the caller can stitch the fresh cross-section face.
+function clipFoamFace(verts, nx, ny, nz, planeD, cutPoints, eps) {
+  const out = [];
+  const count = verts.length;
+  let previousSide = nx * verts[0].x + ny * verts[0].y + nz * verts[0].z - planeD;
+  for (let index = 0; index < count; index += 1) {
+    const current = verts[index];
+    const next = verts[(index + 1) % count];
+    const currentSide = previousSide;
+    const nextSide = nx * next.x + ny * next.y + nz * next.z - planeD;
+    previousSide = nextSide;
+    if (currentSide <= eps) out.push(current);
+    if ((currentSide > eps && nextSide < -eps) || (currentSide < -eps && nextSide > eps)) {
+      const t = currentSide / (currentSide - nextSide);
+      const cut = new THREE.Vector3(
+        current.x + (next.x - current.x) * t,
+        current.y + (next.y - current.y) * t,
+        current.z + (next.z - current.z) * t,
+      );
+      out.push(cut);
+      cutPoints.push(cut);
+    }
+  }
+  return out;
+}
+
+function weldFoamPoints(points, eps) {
+  const seen = new Set();
+  const unique = [];
+  points.forEach((point) => {
+    const key = `${Math.round(point.x / eps)},${Math.round(point.y / eps)},${Math.round(point.z / eps)}`;
+    if (!seen.has(key)) {
+      seen.add(key);
+      unique.push(point);
+    }
+  });
+  return unique;
+}
+
+// Every seed's Voronoi cell inside the cube, computed by clipping the cube
+// against each bisector half-plane. Seeds are visited nearest-first so most
+// planes are rejected by a single far-side test once the cell has shrunk.
+function buildVoronoiCells(seeds, bounds) {
+  const axes = ['x', 'y', 'z'];
+  const cubeFaces = [];
+  for (let axis = 0; axis < 3; axis += 1) {
+    for (const sign of [1, -1]) {
+      const normal = new THREE.Vector3();
+      normal[axes[axis]] = sign;
+      const first = axes[(axis + 1) % 3];
+      const second = axes[(axis + 2) % 3];
+      const verts = [];
+      for (const [su, sv] of [[-1, -1], [1, -1], [1, 1], [-1, 1]]) {
+        const corner = new THREE.Vector3();
+        corner[axes[axis]] = sign * bounds;
+        corner[first] = su * bounds;
+        corner[second] = sv * bounds;
+        verts.push(corner);
+      }
+      cubeFaces.push({ normal, verts });
+    }
+  }
+
+  const eps = 1e-5;
+  const planeNormal = new THREE.Vector3();
+  const helperU = new THREE.Vector3();
+  const helperV = new THREE.Vector3();
+  return seeds.map((seed, seedIndex) => {
+    let faces = cubeFaces;
+    const order = [];
+    for (let other = 0; other < seeds.length; other += 1) {
+      if (other !== seedIndex) order.push(other);
+    }
+    order.sort((a, b) => seeds[a].distanceToSquared(seed) - seeds[b].distanceToSquared(seed));
+
+    for (const other of order) {
+      const target = seeds[other];
+      const nx = target.x - seed.x;
+      const ny = target.y - seed.y;
+      const nz = target.z - seed.z;
+      const length = Math.sqrt(nx * nx + ny * ny + nz * nz);
+      if (length < 1e-6) continue;
+      const ux = nx / length;
+      const uy = ny / length;
+      const uz = nz / length;
+      const planeD = (ux * (target.x + seed.x) + uy * (target.y + seed.y) + uz * (target.z + seed.z)) * 0.5;
+
+      let farSide = -Infinity;
+      for (const face of faces) {
+        for (const vert of face.verts) {
+          const side = ux * vert.x + uy * vert.y + uz * vert.z - planeD;
+          if (side > farSide) farSide = side;
+        }
+      }
+      if (farSide <= eps) continue;
+
+      const cutPoints = [];
+      const nextFaces = [];
+      for (const face of faces) {
+        const clipped = clipFoamFace(face.verts, ux, uy, uz, planeD, cutPoints, eps);
+        if (clipped.length >= 3) nextFaces.push({ normal: face.normal, verts: clipped });
+      }
+      if (cutPoints.length >= 3) {
+        const welded = weldFoamPoints(cutPoints, 2e-4);
+        if (welded.length >= 3) {
+          const centroid = new THREE.Vector3();
+          welded.forEach((point) => centroid.add(point));
+          centroid.multiplyScalar(1 / welded.length);
+          planeNormal.set(ux, uy, uz);
+          helperU.set(1, 0, 0);
+          if (Math.abs(ux) > 0.9) helperU.set(0, 1, 0);
+          helperU.cross(planeNormal).normalize();
+          helperV.crossVectors(planeNormal, helperU);
+          welded.sort((a, b) => {
+            const angleA = Math.atan2(
+              (a.x - centroid.x) * helperV.x + (a.y - centroid.y) * helperV.y + (a.z - centroid.z) * helperV.z,
+              (a.x - centroid.x) * helperU.x + (a.y - centroid.y) * helperU.y + (a.z - centroid.z) * helperU.z,
+            );
+            const angleB = Math.atan2(
+              (b.x - centroid.x) * helperV.x + (b.y - centroid.y) * helperV.y + (b.z - centroid.z) * helperV.z,
+              (b.x - centroid.x) * helperU.x + (b.y - centroid.y) * helperU.y + (b.z - centroid.z) * helperU.z,
+            );
+            return angleA - angleB;
+          });
+          nextFaces.push({ normal: planeNormal.clone(), verts: welded });
+        }
+      }
+      faces = nextFaces;
+      if (faces.length < 4) break;
+    }
+    return { faces };
+  });
+}
+
+function createSceneFiveWeb() {
+  const group = new THREE.Group();
+  group.visible = false;
+  group.renderOrder = 4;
+
+  const random = seededBackgroundRandom(20260824);
+  const gaussian = () => {
+    const u = Math.max(random(), 0.0001);
+    return Math.sqrt(-2 * Math.log(u)) * Math.cos(Math.PI * 2 * random());
+  };
+  const BOUNDS = SCENE_FIVE_BOUNDS;
+
+  // Clustered plus uniform seeds: dense clusters shrink their local cells into
+  // small foam pockets while the sparse regions keep large ones, so the foam
+  // reads as 大大小小 cells instead of one even grid.
+  const clusterCenters = Array.from({ length: 7 }, () => new THREE.Vector3(
+    (random() * 2 - 1) * BOUNDS * 0.6,
+    (random() * 2 - 1) * BOUNDS * 0.6,
+    (random() * 2 - 1) * BOUNDS * 0.6,
+  ));
+  const seeds = [];
+  let attempts = 0;
+  while (seeds.length < 300 && attempts < 14000) {
+    attempts += 1;
+    const point = new THREE.Vector3();
+    if (random() < 0.58) {
+      const center = clusterCenters[Math.floor(random() * clusterCenters.length)];
+      point.set(center.x + gaussian() * 0.6, center.y + gaussian() * 0.6, center.z + gaussian() * 0.6);
+    } else {
+      point.set(random() * 2 - 1, random() * 2 - 1, random() * 2 - 1).multiplyScalar(BOUNDS);
+    }
+    point.clampScalar(-BOUNDS + 0.06, BOUNDS - 0.06);
+    let crowded = false;
+    for (const existing of seeds) {
+      if (existing.distanceToSquared(point) < 0.0169) {
+        crowded = true;
+        break;
+      }
+    }
+    if (!crowded) seeds.push(point);
+  }
+
+  const cells = buildVoronoiCells(seeds, BOUNDS);
+
+  // Weld the raw polyhedron corners into one shared node graph. Corners sitting
+  // on two or three cube planes become the bright edge/corner beads that make
+  // the foam read as a solid box without any drawn outline.
+  const nodeRegistry = new Map();
+  const nodeIndexOf = (point) => {
+    const key = `${Math.round(point.x / 6e-4)},${Math.round(point.y / 6e-4)},${Math.round(point.z / 6e-4)}`;
+    let entry = nodeRegistry.get(key);
+    if (!entry) {
+      entry = { index: nodeRegistry.size, position: point.clone(), degree: 0 };
+      nodeRegistry.set(key, entry);
+    }
+    entry.degree += 1;
+    return entry;
+  };
+  const edgeRegistry = new Map();
+  cells.forEach((cell) => {
+    cell.faceNodes = cell.faces.map((face) => {
+      if (face.verts.length < 3) return null;
+      return face.verts.map((vert) => nodeIndexOf(vert));
+    });
+    cell.faceNodes.forEach((ring) => {
+      if (!ring) return;
+      for (let index = 0; index < ring.length; index += 1) {
+        const a = ring[index];
+        const b = ring[(index + 1) % ring.length];
+        if (a.index === b.index) continue;
+        const key = a.index < b.index ? `${a.index}:${b.index}` : `${b.index}:${a.index}`;
+        if (!edgeRegistry.has(key)) {
+          edgeRegistry.set(key, {
+            a: Math.min(a.index, b.index),
+            b: Math.max(a.index, b.index),
+            length: a.position.distanceTo(b.position),
+          });
+        }
+      }
+    });
+  });
+  const nodeList = new Array(nodeRegistry.size);
+  nodeRegistry.forEach((entry) => { nodeList[entry.index] = entry; });
+
+  const positions = [];
+  const starts = [];
+  const sizes = [];
+  const bases = [];
+  const phases = [];
+  const orders = [];
+  const lightThresholds = [];
+  const hopAmps = [];
+  const hopPhases = [];
+  const radiusNorm = BOUNDS * 1.62;
+  const boundaryAxesAt = (point) => [point.x, point.y, point.z]
+    .filter((value) => Math.abs(Math.abs(value) - BOUNDS) < 1.2e-3).length;
+
+  // 节点 nodes: polyhedron corners, brightest beads of the foam.
+  nodeList.forEach((node) => {
+    const point = node.position;
+    const onCube = Math.min(3, boundaryAxesAt(point));
+    const hubness = Math.min(node.degree, 9);
+    positions.push(point.x, point.y, point.z);
+    starts.push(gaussian() * 0.09, gaussian() * 0.09, gaussian() * 0.09);
+    sizes.push((50 + hubness * 5 + onCube * 11) * (0.88 + random() * 0.26));
+    bases.push(Math.min(1.05, 0.62 + hubness * 0.05 + onCube * 0.07 + random() * 0.1));
+    phases.push(random() * Math.PI * 2);
+    orders.push(Math.min(1, point.length() / radiusNorm) * 0.72 + random() * 0.28);
+    lightThresholds.push(Math.min(0.78, random() * 0.34 + (hubness >= 6 ? 0 : 0.08)));
+    hopAmps.push(0.13 + random() * 0.1);
+    hopPhases.push(((point.y + BOUNDS) / (BOUNDS * 2)) * 2 + random() * 0.7);
+  });
+
+  // 丝 filaments: dots strung along every cell edge.
+  edgeRegistry.forEach(({ a, b, length }) => {
+    if (length < 0.1) return;
+    const start = nodeList[a].position;
+    const end = nodeList[b].position;
+    const dotCount = Math.max(1, Math.round(length / 0.13) - 1);
+    for (let index = 1; index <= dotCount; index += 1) {
+      const t = index / (dotCount + 1);
+      const x = start.x + (end.x - start.x) * t;
+      const y = start.y + (end.y - start.y) * t;
+      const z = start.z + (end.z - start.z) * t;
+      positions.push(x, y, z);
+      starts.push(gaussian() * 0.09, gaussian() * 0.09, gaussian() * 0.09);
+      sizes.push(28 + random() * 16);
+      bases.push(0.4 + random() * 0.2);
+      phases.push(random() * Math.PI * 2);
+      orders.push(Math.min(1, Math.sqrt(x * x + y * y + z * z) / radiusNorm) * 0.72 + random() * 0.28);
+      lightThresholds.push(Math.min(0.8, 0.24 + random() * 0.4));
+      hopAmps.push(0.1 + random() * 0.09);
+      hopPhases.push(((y + BOUNDS) / (BOUNDS * 2)) * 2 + random() * 0.7);
+    }
+  });
+
+  // 壁 walls: sparse point sheets over each cell face; the faces flush against
+  // the cube boundary sample denser so the six sides of the box stay readable.
+  const polygonArea = (verts) => {
+    let sum = 0;
+    for (let index = 0; index < verts.length; index += 1) {
+      const a = verts[index];
+      const b = verts[(index + 1) % verts.length];
+      sum += (a.x * b.y - b.x * a.y) + (a.y * b.z - b.y * a.z) + (a.z * b.x - a.z * b.x);
+    }
+    return Math.abs(sum) * 0.5;
+  };
+  const faceOnCube = (verts) => {
+    for (let axis = 0; axis < 3; axis += 1) {
+      let hits = 0;
+      for (const vert of verts) {
+        if (Math.abs(Math.abs(vert.getComponent(axis)) - BOUNDS) < 1.2e-3) hits += 1;
+      }
+      if (hits === verts.length) return true;
+    }
+    return false;
+  };
+  const samplePoint = new THREE.Vector3();
+  cells.forEach((cell) => {
+    cell.faces.forEach((face, faceIndex) => {
+      const ring = cell.faceNodes[faceIndex];
+      if (!ring) return;
+      const verts = face.verts;
+      const area = polygonArea(verts);
+      if (area < 0.008) return;
+      const boundary = faceOnCube(verts);
+      const dotCount = Math.min(420, Math.round(area * (boundary ? 26 : 17)));
+      for (let index = 0; index < dotCount; index += 1) {
+        const tri = 1 + Math.floor(random() * (verts.length - 1));
+        let r1 = Math.sqrt(random());
+        let r2 = random();
+        if (r1 + r2 > 1) {
+          r1 = 1 - r1;
+          r2 = 1 - r2;
+        }
+        const a = verts[0];
+        const b = verts[tri];
+        const c = verts[tri === verts.length - 1 ? 1 : tri + 1];
+        samplePoint.set(
+          a.x + (b.x - a.x) * r1 + (c.x - a.x) * r2,
+          a.y + (b.y - a.y) * r1 + (c.y - a.y) * r2,
+          a.z + (b.z - a.z) * r1 + (c.z - a.z) * r2,
+        );
+        positions.push(samplePoint.x, samplePoint.y, samplePoint.z);
+        starts.push(gaussian() * 0.09, gaussian() * 0.09, gaussian() * 0.09);
+        sizes.push((17 + random() * 11) * (boundary ? 1.16 : 1));
+        bases.push((0.2 + random() * 0.16) * (boundary ? 1.32 : 1));
+        phases.push(random() * Math.PI * 2);
+        orders.push(Math.min(1, samplePoint.length() / radiusNorm) * 0.72 + random() * 0.28);
+        lightThresholds.push(Math.min(0.82, 0.38 + random() * 0.44));
+        hopAmps.push(0.07 + random() * 0.07);
+        hopPhases.push(((samplePoint.y + BOUNDS) / (BOUNDS * 2)) * 2 + random() * 0.7);
+      }
+    });
+  });
+
+  const nodeGeometry = new THREE.BufferGeometry();
+  nodeGeometry.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
+  nodeGeometry.setAttribute('aStart', new THREE.Float32BufferAttribute(starts, 3));
+  nodeGeometry.setAttribute('aSize', new THREE.Float32BufferAttribute(sizes, 1));
+  nodeGeometry.setAttribute('aBase', new THREE.Float32BufferAttribute(bases, 1));
+  nodeGeometry.setAttribute('aPhase', new THREE.Float32BufferAttribute(phases, 1));
+  nodeGeometry.setAttribute('aOrder', new THREE.Float32BufferAttribute(orders, 1));
+  nodeGeometry.setAttribute('aLightThreshold', new THREE.Float32BufferAttribute(lightThresholds, 1));
+  nodeGeometry.setAttribute('aHopAmp', new THREE.Float32BufferAttribute(hopAmps, 1));
+  nodeGeometry.setAttribute('aHopPhase', new THREE.Float32BufferAttribute(hopPhases, 1));
+  const nodeMaterial = new THREE.ShaderMaterial({
+    uniforms: {
+      uAssemble: { value: 0 },
+      uHopClock: { value: 0 },
+      uHopEnv: { value: 0 },
+      uLight: { value: 0 },
+      uPointLightColor: { value: sceneFivePointLightColor },
+      uTime: { value: 0 },
+      uOpacity: { value: 0.7 },
+      uPixelRatio: { value: 1 },
+    },
+    vertexShader: `
+      attribute vec3 aStart;
+      attribute float aSize;
+      attribute float aBase;
+      attribute float aPhase;
+      attribute float aOrder;
+      attribute float aLightThreshold;
+      attribute float aHopAmp;
+      attribute float aHopPhase;
+      uniform float uAssemble;
+      uniform float uHopClock;
+      uniform float uHopEnv;
+      uniform float uLight;
+      uniform vec3 uPointLightColor;
+      uniform float uTime;
+      uniform float uPixelRatio;
+      varying vec3 vColor;
+      varying float vAlpha;
+      void main() {
+        float local = clamp((uAssemble - aOrder * 0.62) / 0.38, 0.0, 1.0);
+        float ease = local * local * (3.0 - 2.0 * local);
+        float overshoot = 1.0 + 0.16 * sin(ease * 3.14159) * (1.0 - local);
+        vec3 foamPosition = mix(aStart, position, ease * overshoot);
+        float hop = max(0.0, sin(uHopClock * 7.3 - aHopPhase)) * aHopAmp * uHopEnv * ease;
+        foamPosition.y += hop;
+        vec4 mvPosition = modelViewMatrix * vec4(foamPosition, 1.0);
+        gl_PointSize = aSize * uPixelRatio / max(1.0, -mvPosition.z);
+        gl_Position = projectionMatrix * mvPosition;
+        float lift = clamp((uLight * 1.3 - aLightThreshold) / 0.34, 0.0, 1.0);
+        lift = lift * lift * (3.0 - 2.0 * lift);
+        float shimmer = 1.0 + sin(uTime * 2.3 + aPhase) * 0.055;
+        float brightness = aBase * (0.62 + lift * 1.05) * shimmer;
+        vec3 foamWhite = vec3(0.87, 0.94, 1.0);
+        // Meissa (觜宿一) is the cue's reference star in Scene 04. Its
+        // pale blue-white tint blooms into the foam only as each point's
+        // distributed-light threshold is crossed.
+        vColor = brightness * mix(foamWhite, uPointLightColor, lift * 0.9);
+        vAlpha = ease;
+      }
+    `,
+    fragmentShader: `
+      uniform float uOpacity;
+      varying vec3 vColor;
+      varying float vAlpha;
+      void main() {
+        float distanceToCenter = length(gl_PointCoord - vec2(0.5));
+        float core = 1.0 - smoothstep(0.0, 0.17, distanceToCenter);
+        float halo = 1.0 - smoothstep(0.12, 0.5, distanceToCenter);
+        float alpha = (core * 0.88 + halo * 0.24) * uOpacity * vAlpha;
+        if (alpha < 0.012) discard;
+        gl_FragColor = vec4(vColor, alpha);
+      }
+    `,
+    transparent: true,
+    depthWrite: false,
+    blending: THREE.AdditiveBlending,
+  });
+  const points = new THREE.Points(nodeGeometry, nodeMaterial);
+  points.renderOrder = 5;
+  points.frustumCulled = false;
+  group.add(points);
+
+  // 神经网 web: the foam's own cell edges plus a few hub-to-hub axons that
+  // cross the voids, so the woven net reads as neural tissue rather than a
+  // regular wireframe. Growth order follows a breadth-first wave out of the
+  // densest hub, like signal spreading through tissue.
+  const linkSet = new Set();
+  const finalEdges = [];
+  const isCubeOutlineEdge = (a, b) => {
+    // Suppress edges that run along the six outer cube planes. The foam points
+    // still define that silhouette; the later neural-web pass should read as
+    // irregular tissue rather than a wireframe box.
+    for (let axis = 0; axis < 3; axis += 1) {
+      const aOnPlane = Math.abs(Math.abs(a.position.getComponent(axis)) - BOUNDS) < 1.2e-3;
+      const bOnPlane = Math.abs(Math.abs(b.position.getComponent(axis)) - BOUNDS) < 1.2e-3;
+      if (aOnPlane && bOnPlane) return true;
+    }
+    return false;
+  };
+  edgeRegistry.forEach(({ a, b, length }) => {
+    if (length < 0.14 || length > 2.6) return;
+    if (isCubeOutlineEdge(nodeList[a], nodeList[b])) return;
+    const key = `${a}:${b}`;
+    if (linkSet.has(key)) return;
+    linkSet.add(key);
+    finalEdges.push({ a, b, length });
+  });
+  const hubs = nodeList
+    .map((node, index) => ({ node, index }))
+    .filter(({ node }) => node.degree >= 6)
+    .sort((a, b) => b.node.degree - a.node.degree)
+    .slice(0, 56);
+  let axons = 0;
+  hubs.forEach((hub) => {
+    if (axons >= 84) return;
+    let best = null;
+    let bestDistance = 2.1;
+    hubs.forEach((other) => {
+      if (other === hub) return;
+      const minIndex = Math.min(hub.index, other.index);
+      const maxIndex = Math.max(hub.index, other.index);
+      if (linkSet.has(`${minIndex}:${maxIndex}`)) return;
+      const distance = hub.node.position.distanceTo(other.node.position);
+      if (distance < bestDistance) {
+        bestDistance = distance;
+        best = other;
+      }
+    });
+    if (best) {
+      const minIndex = Math.min(hub.index, best.index);
+      const maxIndex = Math.max(hub.index, best.index);
+      linkSet.add(`${minIndex}:${maxIndex}`);
+      finalEdges.push({ a: minIndex, b: maxIndex, length: bestDistance });
+      axons += 1;
+    }
+  });
+
+  const adjacency = new Map();
+  finalEdges.forEach(({ a, b }) => {
+    if (!adjacency.has(a)) adjacency.set(a, []);
+    if (!adjacency.has(b)) adjacency.set(b, []);
+    adjacency.get(a).push(b);
+    adjacency.get(b).push(a);
+  });
+  let root = 0;
+  let rootScore = -Infinity;
+  nodeList.forEach((node, index) => {
+    const centrality = node.degree - node.position.length() * 0.8;
+    if (centrality > rootScore) {
+      rootScore = centrality;
+      root = index;
+    }
+  });
+  const depth = new Map([[root, 0]]);
+  const queue = [root];
+  while (queue.length) {
+    const current = queue.shift();
+    const currentDepth = depth.get(current);
+    (adjacency.get(current) ?? []).forEach((neighbor) => {
+      if (depth.has(neighbor)) return;
+      depth.set(neighbor, currentDepth + 1);
+      queue.push(neighbor);
+    });
+  }
+  let maxDepth = 1;
+  depth.forEach((value) => { maxDepth = Math.max(maxDepth, value); });
+
+  const linePositions = [];
+  const lineStarts = [];
+  const lineEnds = [];
+  const lineT = [];
+  const lineDelays = [];
+  finalEdges.forEach(({ a, b }) => {
+    const pa = nodeList[a].position;
+    const pb = nodeList[b].position;
+    const delay = Math.min(1, 0.08 + ((depth.get(a) ?? 9) / maxDepth) * 0.58 + random() * 0.3);
+    linePositions.push(pa.x, pa.y, pa.z, pb.x, pb.y, pb.z);
+    lineStarts.push(pa.x, pa.y, pa.z, pa.x, pa.y, pa.z);
+    lineEnds.push(pb.x, pb.y, pb.z, pb.x, pb.y, pb.z);
+    lineT.push(0, 1);
+    lineDelays.push(delay, delay);
+  });
+
+  const lineGeometry = new THREE.BufferGeometry();
+  lineGeometry.setAttribute('position', new THREE.Float32BufferAttribute(linePositions, 3));
+  lineGeometry.setAttribute('aStart', new THREE.Float32BufferAttribute(lineStarts, 3));
+  lineGeometry.setAttribute('aEnd', new THREE.Float32BufferAttribute(lineEnds, 3));
+  lineGeometry.setAttribute('aT', new THREE.Float32BufferAttribute(lineT, 1));
+  lineGeometry.setAttribute('aDelay', new THREE.Float32BufferAttribute(lineDelays, 1));
+  const lines = new THREE.LineSegments(lineGeometry, new THREE.ShaderMaterial({
+    uniforms: {
+      uReveal: { value: 0 },
+      uColorShift: { value: 0 },
+      uOpacity: { value: 0 },
+    },
+    vertexShader: `
+      attribute vec3 aStart;
+      attribute vec3 aEnd;
+      attribute float aT;
+      attribute float aDelay;
+      uniform float uReveal;
+      varying float vGlow;
+      void main() {
+        float growth = clamp((uReveal - aDelay * 0.72) / 0.28, 0.0, 1.0);
+        vec3 webPosition = mix(aStart, aEnd, min(aT, growth));
+        vGlow = 0.45 + 0.55 * growth;
+        gl_Position = projectionMatrix * modelViewMatrix * vec4(webPosition, 1.0);
+      }
+    `,
+    fragmentShader: `
+      uniform float uColorShift;
+      uniform float uOpacity;
+      varying float vGlow;
+      void main() {
+        vec3 webWhite = vec3(0.97, 1.0, 0.985);
+        vec3 webBlue = vec3(0.42, 0.8, 0.97);
+        vec3 color = mix(webWhite, webBlue, uColorShift);
+        float alpha = uOpacity * vGlow;
+        if (alpha < 0.01) discard;
+        gl_FragColor = vec4(color * (0.72 + 0.5 * vGlow), alpha);
+      }
+    `,
+    transparent: true,
+    depthWrite: false,
+    blending: THREE.AdditiveBlending,
+  }));
+  lines.renderOrder = 6;
+  lines.frustumCulled = false;
+  group.add(lines);
+
+  return { group, points, lines };
 }
 
 function createBackgroundStars() {
@@ -2568,6 +3143,61 @@ function updateSceneFour(field, state, frameTime, boundaryField) {
   });
 }
 
+function updateSceneFive(web, state, frameTime, field) {
+  if (!state.active) {
+    web.group.visible = false;
+    return;
+  }
+
+  field.group.visible = true;
+  web.group.visible = true;
+  field.screenGroup.visible = false;
+  field.stars.forEach((star) => {
+    star.userData.halo.material.opacity = 0;
+    star.userData.core.material.opacity = 0;
+    star.userData.label.style.opacity = '0';
+    star.userData.label.style.display = 'none';
+  });
+  field.flatStars.forEach((star) => { star.material.opacity = 0; });
+  field.flatLines.forEach((line) => { line.material.opacity = 0; });
+  field.depthLines.forEach((line) => { line.material.opacity = 0; });
+  field.distanceLine.material.opacity = 0;
+  field.distanceLabel.style.opacity = '0';
+  field.distanceLabel.style.display = 'none';
+  const imprintFlash = 1 - smoothstep(THREE.MathUtils.clamp(
+    (frameTime - SCENE_FIVE_START) / 0.72,
+    0,
+    1,
+  ));
+  field.imprintCore.material.opacity = imprintFlash * 0.82;
+  field.imprintHalo.material.opacity = imprintFlash * 0.24;
+  field.imprintRings.forEach((ring, index) => {
+    ring.material.opacity = imprintFlash * (0.18 - index * 0.025);
+  });
+
+  // The whole animation is uniform-driven: the foam assembles from the frozen
+  // imprint, hops upward while the cube turns a third of a turn, then the net
+  // weaves white and cools to blue before the distributed ignition.
+  const light = smoothstep(THREE.MathUtils.clamp(state.distributedLight, 0, 1));
+  web.group.position.copy(field.imprintTarget);
+  web.group.position.y += state.lift * 0.3;
+  web.group.rotation.set(state.rotation * 0.3, state.rotation, state.rotation * 0.16);
+
+  const foamUniforms = web.points.material.uniforms;
+  foamUniforms.uAssemble.value = smoothstep(THREE.MathUtils.clamp(state.dispersal, 0, 1));
+  foamUniforms.uHopClock.value = state.hopClock;
+  foamUniforms.uHopEnv.value = state.hop;
+  foamUniforms.uLight.value = light;
+  foamUniforms.uTime.value = frameTime;
+  foamUniforms.uOpacity.value = 0.7 + light * 0.3;
+
+  const webUniforms = web.lines.material.uniforms;
+  const reveal = smoothstep(THREE.MathUtils.clamp(state.networkReveal, 0, 1));
+  webUniforms.uReveal.value = reveal;
+  webUniforms.uColorShift.value = smoothstep(THREE.MathUtils.clamp(state.lineColorShift, 0, 1));
+  webUniforms.uOpacity.value = reveal * (0.5 + light * 0.34);
+}
+
 function updateWaveEquation(time) {
   const state = getWaveState(time);
   const showEquation = state.active && time <= SCENE_ONE_END;
@@ -2592,10 +3222,15 @@ function updateWaveEquation(time) {
 }
 
 function updateScene(time, motionTime = time) {
-  const frameTime = Math.min(SCENE_DURATION, Math.floor(time * FPS) / FPS);
+  // Keep URL debug seeks exact; audio playback remains quantized to the 30 FPS
+  // render clock for deterministic exported frames.
+  const frameTime = hasDebugSeek
+    ? Math.min(SCENE_DURATION, Math.max(0, time))
+    : Math.min(SCENE_DURATION, Math.floor(time * FPS) / FPS);
   const recombination = getRecombinationState(frameTime);
   const sceneThree = getSceneThreeState(frameTime);
   const sceneFour = getSceneFourState(frameTime);
+  const sceneFive = getSceneFiveState(frameTime);
   // Keep the exact second-scene endpoint owned by recombination. Scene three
   // begins on the following 30 FPS frame, so its right-side approach cannot
   // overwrite the second scene's final image.
@@ -2607,7 +3242,8 @@ function updateScene(time, motionTime = time) {
   const sceneFourRenderState = sceneFourVisible
     ? sceneFour
     : { ...sceneFour, active: false };
-  deepSkyRoot.style.opacity = sceneFourVisible ? `${sceneFourRenderState.reveal}` : '0';
+  const sceneFiveVisible = sceneFive.active && frameTime > SCENE_FIVE_START;
+  deepSkyRoot.style.opacity = sceneFourVisible || sceneFiveVisible ? '1' : '0';
   const storyTime = frameTime >= SCENE_ONE_END ? recombination.waveTime : frameTime;
   const sceneThreeTransition = THREE.MathUtils.smoothstep(frameTime, SCENE_TWO_END, SCENE_TWO_END + 0.52);
   const oldFieldVisibility = 1 - sceneThreeTransition;
@@ -2618,7 +3254,9 @@ function updateScene(time, motionTime = time) {
   if (frame !== lastFrame) {
     lastFrame = frame;
     subtitleEl.textContent = getSubtitleAtTime(frameTime);
-    captionEl.textContent = sceneFourVisible
+    captionEl.textContent = sceneFiveVisible
+      ? '三维结构示意 · Voronoi 泡沫（空洞-壁-丝-节点）'
+      : sceneFourVisible
       ? '声学印记 · d_BAO ≈ 147 Mpc · 星系间距'
       : sceneThreeVisible
       ? '碰撞冲量  J = ∫F dt = Δp · 声痕冻结'
@@ -2627,24 +3265,34 @@ function updateScene(time, motionTime = time) {
       : frameTime >= 4.3
         ? '纵波位移  ξ(x,t) = A sin(kx - ωt)'
         : '原初光子 · 重子 · 声压峰';
+    const showSceneFiveTitle = sceneFiveVisible;
     const showSceneFourTitle = sceneFourVisible && frameTime > SCENE_FOUR_START + 0.25;
     const showSceneThreeTitle = sceneThreeVisible && frameTime > SCENE_TWO_END + 0.25;
     const showSceneTwoTitle = frameTime >= SCENE_ONE_END + 0.3;
-    eyebrowEl.textContent = showSceneFourTitle
+    eyebrowEl.textContent = showSceneFiveTitle
+      ? 'SCENE 05 / COSMIC WEB'
+      : showSceneFourTitle
       ? 'SCENE 04 / DISTANCE IMPRINT'
       : showSceneThreeTitle
       ? 'SCENE 03 / SIXFOLD CORE'
       : showSceneTwoTitle
         ? 'SCENE 02 / RECOMBINATION'
         : 'SCENE 01 / PRIMORDIAL PLASMA';
-    titleSubEl.textContent = showSceneFourTitle
+    titleSubEl.textContent = showSceneFiveTitle
+      ? '回声，被宇宙织成一张网。'
+      : showSceneFourTitle
       ? '回声，写进星系之间。'
       : showSceneThreeTitle
       ? '一声，撞向六合。'
       : showSceneTwoTitle
         ? '光与物质，从此分离。'
         : '很久以前，声音还没有名字。';
-    timecodeEl.textContent = `${formatTime(frameTime)} / 00:24.60`;
+    timecodeEl.textContent = `${formatTime(frameTime)} / 00:36.667`;
+    cosmicClockEl.style.opacity = sceneFiveVisible ? '1' : '0';
+    gravityNoteEl.style.opacity = sceneFiveVisible ? '1' : '0';
+    if (sceneFiveVisible) {
+      cosmicClockValueEl.textContent = sceneFive.networkReveal > 0.4 ? 't ≈ 118.5 亿年' : 't ≈ 2.4 亿年';
+    }
   }
   const focus = getSelectionAtTime(frameTime);
   const focused = new Set(focus.nodes);
@@ -2733,12 +3381,16 @@ function updateScene(time, motionTime = time) {
   updateWave(frameTime);
   updateSceneThreeWave(sceneThreeRenderState);
   updateSceneFour(sceneFourField, sceneFourRenderState, frameTime, boundaryField);
+  updateSceneFive(sceneFiveWeb, sceneFiveVisible ? sceneFive : { ...sceneFive, active: false }, frameTime, sceneFourField);
   stars.children.forEach((starLayer) => {
     starLayer.material.uniforms.uAbsorbTarget.value.copy(wave.group.position);
   });
   const cameraPush = getCameraPushAtTime(frameTime);
   if (sceneFourVisible) {
     updateSceneFourCamera(frameTime, sceneFourRenderState, boundaryField);
+  } else if (sceneFiveVisible) {
+    camera.position.copy(computeSceneFourCameraOrbit(SCENE_FOUR_END_OFFSET_LY));
+    camera.lookAt(0, 0, 0);
   } else {
     updateSceneThreeCamera(frameTime, storyTime, cameraPush, recombination, sceneThreeRenderState);
   }
@@ -2841,10 +3493,17 @@ function resize() {
   renderer.setSize(width, height, false);
   camera.aspect = width / height;
   camera.updateProjectionMatrix();
+  sceneFiveWeb.points.material.uniforms.uPixelRatio.value = outputScale;
   drawDeepSky();
 }
 
-let virtualTime = 0;
+// Debug freeze-frame: loading the page with ?t=<seconds> parks the scene at an
+// exact narration time without audio, for frame-by-frame visual checks.
+const debugSeekParam = Number(new URLSearchParams(window.location.search).get('t'));
+const hasDebugSeek = Number.isFinite(debugSeekParam) && debugSeekParam >= 0;
+let virtualTime = hasDebugSeek
+  ? Math.min(debugSeekParam, SCENE_DURATION)
+  : 0;
 
 function setPlaying(playing) {
   isPlaying = playing;
@@ -2891,7 +3550,11 @@ audio.addEventListener('timeupdate', () => {
 
 window.addEventListener('resize', resize);
 resize();
-updateScene(0);
+if (hasDebugSeek) {
+  audio.pause();
+  setPlaying(false);
+}
+updateScene(virtualTime);
 
 const motionClock = new THREE.Clock();
 let celestialMotionTime = 0;
