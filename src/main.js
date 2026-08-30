@@ -1166,7 +1166,7 @@ function createSceneFiveWeb() {
       const area = polygonArea(verts);
       if (area < 0.008) return;
       const boundary = faceOnCube(verts);
-      const dotCount = Math.min(160, Math.round(area * (boundary ? 8 : 2)));
+      const dotCount = Math.min(160, Math.round(area * (boundary ? 8 : 1)));
       for (let index = 0; index < dotCount; index += 1) {
         const tri = 1 + Math.floor(random() * (verts.length - 1));
         let r1 = Math.sqrt(random());
@@ -1320,6 +1320,17 @@ function createSceneFiveWeb() {
   const gridKey = (p) => `${Math.floor(p.x / gridCell)},${Math.floor(p.y / gridCell)},${Math.floor(p.z / gridCell)}`;
   const tips = [rootPoint.clone()];
   const grown = [];
+  // One record per limb (root->fork / fork->tip): where it forked, which
+  // iteration it was born, and where its tip currently is. maxLineages caps
+  // how many limbs the run may spawn — set to two thirds of the free-split
+  // count so the tree sheds a third of its limbs while every surviving limb
+  // still grows its full run of steps (reach per limb stays unchanged).
+  const lineages = [{ parent: -1, origin: rootPoint.clone(), birth: 0, tip: rootPoint.clone() }];
+  // Thinned from the 1197-limb free-split run: 798 → 532 → 266 → 133 → 66,
+  // same rule throughout — forks past the cap don't spawn, the surviving
+  // limbs keep their full run of steps and render as one straight stroke each.
+  const maxLineages = 66;
+  const tipLineage = [0];
   const tipGrid = new Map();
   const rebuildTipGrid = () => {
     tipGrid.clear();
@@ -1377,10 +1388,17 @@ function createSceneFiveWeb() {
     }
     if (pullDirs.size === 0) break;
     const nextTips = [];
+    const nextLineage = [];
+    // Limb budget: forks past the cap simply don't spawn this iteration, so
+    // the pull keeps steering the existing limb instead of planting a new
+    // one — fewer limbs share the canopy, none of them shorter.
+    let forksLeft = Math.max(0, maxLineages - lineages.length);
     tips.forEach((tip, ti) => {
+      const lin = tipLineage[ti];
       const dirs = pullDirs.get(ti);
       if (!dirs) {
         nextTips.push(tip.clone());
+        nextLineage.push(lin);
         return;
       }
       // Cluster divergent pulls: directions wider than ~44° spawn separate
@@ -1412,27 +1430,55 @@ function createSceneFiveWeb() {
           nearest.sum.add(d);
         }
       }
-      clusters.forEach((c) => {
+      clusters.forEach((c, ci) => {
+        let childLin = lin;
+        if (ci > 0) {
+          if (forksLeft <= 0) return;
+          forksLeft -= 1;
+          childLin = lineages.length;
+        }
         const dir = c.sum.normalize().lerp(growthBias, 0.24).normalize();
         const next = tip.clone().addScaledVector(dir, stepLen);
         next.clampScalar(-BOUNDS + 0.04, BOUNDS - 0.04);
+        if (childLin !== lin) {
+          lineages.push({ parent: lin, origin: tip.clone(), birth: iter, tip: next.clone() });
+        }
         if (grown.length < 7000) grown.push({ a: tip, b: next, iter });
+        lineages[childLin].tip = next.clone();
         nextTips.push(next);
+        nextLineage.push(childLin);
       });
     });
     tips.length = 0;
     nextTips.forEach((tip) => tips.push(tip));
+    tipLineage.length = 0;
+    nextLineage.forEach((lin) => tipLineage.push(lin));
   }
   const lastGrowthIter = grown.reduce((max, g) => Math.max(max, g.iter), 0);
-  const skeletonSegments = [];
-  grown.forEach(({ a, b, iter }) => {
-    skeletonSegments.push({
-      a,
-      b,
-      delay: 0.05 + (iter / Math.max(1, lastGrowthIter)) * 0.5,
-      kind: iter < 5 ? 1 : 0.5,
-    });
+  // Render each limb as ONE straight silk stroke from its fork point to its
+  // final tip, so limbs read as taut lines even though the growth path
+  // wandered. Each fork point is projected onto the parent's rendered chord
+  // to keep limbs attached; endpoints keep the full reach the growth found,
+  // so no limb comes out shorter than the run grew it.
+  lineages.forEach((lin) => {
+    if (lin.parent < 0) {
+      lin.renderOrigin = lin.origin.clone();
+      return;
+    }
+    const parent = lineages[lin.parent];
+    const chord = parent.tip.clone().sub(parent.renderOrigin);
+    const spanSq = chord.lengthSq();
+    const along = spanSq > 0
+      ? THREE.MathUtils.clamp(lin.origin.clone().sub(parent.renderOrigin).dot(chord) / spanSq, 0, 1)
+      : 0;
+    lin.renderOrigin = parent.renderOrigin.clone().addScaledVector(chord, along);
   });
+  const skeletonSegments = lineages.map((lin) => ({
+    a: lin.renderOrigin,
+    b: lin.tip,
+    delay: 0.05 + (lin.birth / Math.max(1, lastGrowthIter)) * 0.5,
+    kind: lin.birth < 5 ? 1 : 0.5,
+  }));
   // Leaf flesh: Voronoi nodes within reach of the grown skeleton count as
   // foliage; edges between two foliage nodes weave the canopy mesh.
   const flesh = new Set();
@@ -1473,44 +1519,233 @@ function createSceneFiveWeb() {
     }
     return false;
   };
+  // The woven net IS a tree: a deterministic recursive generator lays down a
+  // trunk, limbs and twigs in 3D (the reference silhouette), each branch
+  // sweeping a gentle arc, and fine cross-links between neighboring branch
+  // points weave the strokes into a net. The Voronoi foam survives only as
+  // the faint background dust web.
+  const treeRandom = (() => {
+    let s = 987654321;
+    return () => {
+      s = (s * 16807) % 2147483647;
+      return s / 2147483647;
+    };
+  })();
+  const hashPair = (a, b) => {
+    const s = Math.sin(a * 12.9898 + b * 78.233) * 43758.5453;
+    return s - Math.floor(s);
+  };
+  // Branch generation follows the EZ-Tree rules (Codrops "Fractals to
+  // Forests"): a branch queue recursion where every limb tapers, thin limbs
+  // twist more than thick ones (gnarliness ~ 1/sqrt(radius)), a quaternion
+  // growth force bends every limb toward the light, and child limbs inherit
+  // the parent's local radius and fan out evenly around its circumference.
+  const UP = new THREE.Vector3(0, 1, 0);
+  const sunDir = new THREE.Vector3(0.2, 0.95, 0.1).normalize();
+  // The tree stands at the lower-left of the foam cloud and grows up-right
+  // through it, like the reference silhouette.
+  const treeRoot = new THREE.Vector3(-2.3, -1.7, 0.25).applyQuaternion(netQuatInverse);
+  const trunkDir = new THREE.Vector3(0.8, 0.5, 0.05).normalize().applyQuaternion(netQuatInverse);
+  const treeStrokes = [];
+  const treePoints = [];
+  const branchPaths = [];
+  const branchQueue = [
+    { origin: treeRoot, dir: trunkDir, len: 2.6, radius: 0.22, gen: 0 },
+  ];
+  while (branchQueue.length && treeStrokes.length < 1600) {
+    const branch = branchQueue.shift();
+    const steps = Math.max(4, Math.round(branch.len / 0.17));
+    let p = branch.origin.clone();
+    const path = [p.clone()];
+    const q = new THREE.Quaternion().setFromUnitVectors(UP, branch.dir.clone().normalize());
+    const forkStep = Math.round(steps * (branch.gen === 0 ? 0.55 : 0.6));
+    const radialOffset = treeRandom();
+    for (let i = 0; i < steps; i += 1) {
+      // Gnarliness: the thinner the limb, the more it twists and turns
+      // (capped so twigs stay lively but never curl into hooks).
+      const gnarliness = Math.min(0.07, Math.max(0.04, 0.5 / Math.sqrt(Math.max(branch.radius, 0.02))) * 0.045);
+      const gAxis = new THREE.Vector3(treeRandom() - 0.5, treeRandom() - 0.5, treeRandom() - 0.5).normalize();
+      q.multiply(new THREE.Quaternion().setFromAxisAngle(gAxis, (treeRandom() * 2 - 1) * gnarliness));
+      // Growth force: every limb reaches for the light, thinner ones bend
+      // more (capped to keep the arcs gentle).
+      const qForce = new THREE.Quaternion().setFromUnitVectors(UP, sunDir);
+      q.rotateTowards(qForce, Math.min(0.045, 0.012 / Math.max(branch.radius, 0.02)));
+      const d = UP.clone().applyQuaternion(q);
+      const radius = branch.radius * (1 - 0.3 * (i / steps));
+      const next = p.clone().addScaledVector(d, 0.15).clampScalar(-BOUNDS + 0.04, BOUNDS - 0.04);
+      treeStrokes.push({ a: p.clone(), b: next.clone(), gen: branch.gen, radius, along: (i + 1) / steps });
+      treePoints.push({ p: next.clone(), gen: branch.gen });
+      path.push(next.clone());
+      p = next;
+      if (i === forkStep && branch.gen < 5) {
+        const kids = branch.gen === 0 ? 3 : 2;
+        // Children fan out evenly around the parent limb's circumference.
+        const side1 = new THREE.Vector3().crossVectors(d, UP);
+        if (side1.lengthSq() < 1e-4) side1.set(1, 0, 0);
+        side1.normalize();
+        const side2 = new THREE.Vector3().crossVectors(d, side1).normalize();
+        for (let k = 0; k < kids; k += 1) {
+          const fork = 0.55 + treeRandom() * 0.5;
+          const radial = Math.PI * 2 * (radialOffset + k / kids);
+          const nd = d.clone()
+            .multiplyScalar(Math.cos(fork))
+            .addScaledVector(side1, Math.cos(radial) * Math.sin(fork))
+            .addScaledVector(side2, Math.sin(radial) * Math.sin(fork))
+            .normalize();
+          branchQueue.push({
+            origin: p.clone(),
+            dir: nd,
+            len: branch.len * 0.68,
+            radius: radius * 0.65,
+            gen: branch.gen + 1,
+          });
+        }
+      }
+      // Delicate little side-twigs: a short thin shoot occasionally sprouts
+      // partway along deeper limbs — fine detail, no extra weight.
+      if (branch.gen >= 2 && branch.gen <= 3 && i === Math.max(1, forkStep - 2) && treeRandom() < 0.35) {
+        const side = new THREE.Vector3(treeRandom() - 0.5, treeRandom() - 0.5, treeRandom() - 0.5).normalize();
+        const nd = d.clone().applyAxisAngle(side, 0.7 + treeRandom() * 0.5).normalize();
+        branchQueue.push({
+          origin: p.clone(),
+          dir: nd,
+          len: branch.len * 0.3,
+          radius: radius * 0.4,
+          gen: branch.gen + 1,
+        });
+      }
+    }
+    branchPaths.push({ pts: path, gen: branch.gen });
+  }
+  // Fine net links between branch points of neighboring twigs: the net is
+  // the hero of this scene, so the weave is dense — the tree strokes are
+  // just the frame it is spun over.
+  const treeLinkGrid = new Map();
+  treePoints.forEach((pt, idx) => {
+    const k = gridKey(pt.p);
+    if (!treeLinkGrid.has(k)) treeLinkGrid.set(k, []);
+    treeLinkGrid.get(k).push(idx);
+  });
+  const treeLinks = [];
+  treePoints.forEach((pt, idx) => {
+    const cx = Math.floor(pt.p.x / gridCell);
+    const cy = Math.floor(pt.p.y / gridCell);
+    const cz = Math.floor(pt.p.z / gridCell);
+    for (let dx = -1; dx <= 1; dx += 1) {
+      for (let dy = -1; dy <= 1; dy += 1) {
+        for (let dz = -1; dz <= 1; dz += 1) {
+          const list = treeLinkGrid.get(`${cx + dx},${cy + dy},${cz + dz}`);
+          if (!list) continue;
+          for (const other of list) {
+            if (other <= idx) continue;
+            const op = treePoints[other].p;
+            const dist = pt.p.distanceTo(op);
+            if (dist > 0.55 || dist < 0.2) continue;
+            if (hashPair(idx, other) > 0.14) continue;
+            treeLinks.push({ a: pt.p, b: op, gen: Math.max(pt.gen, treePoints[other].gen) });
+          }
+        }
+      }
+    }
+  });
+  // Curve-guided flow particles (the rain-particle technique): every branch
+  // becomes a CatmullRomCurve3 and glowing motes drift along it, so the woven
+  // tree reads as alive — sap and light travelling root to tip.
+  const branchCurves = branchPaths
+    .filter(({ pts }) => pts.length >= 4)
+    .map(({ pts, gen }) => ({
+      curve: new THREE.CatmullRomCurve3(pts),
+      gen,
+      len: (pts.length - 1) * 0.15,
+    }));
+  const flowDots = [];
+  branchCurves.forEach(({ curve, gen, len }) => {
+    const count = Math.max(2, Math.round(len * 11));
+    for (let i = 0; i < count; i += 1) {
+      flowDots.push({
+        curve,
+        offset: treeRandom(),
+        speed: (0.04 + treeRandom() * 0.05) * (gen >= 3 ? 1.5 : 1),
+        size: (7 + treeRandom() * 7) * (gen === 0 ? 1.25 : 1),
+        shade: Math.max(0.3, 1 - gen * 0.13),
+      });
+    }
+  });
+  const flowPositions = new Float32Array(flowDots.length * 3);
+  const flowSizes = new Float32Array(flowDots.length);
+  const flowShades = new Float32Array(flowDots.length);
+  flowDots.forEach((dot, i) => {
+    flowSizes[i] = dot.size;
+    flowShades[i] = dot.shade;
+  });
+  const flowGeometry = new THREE.BufferGeometry();
+  flowGeometry.setAttribute('position', new THREE.BufferAttribute(flowPositions, 3));
+  flowGeometry.setAttribute('aSize', new THREE.BufferAttribute(flowSizes, 1));
+  flowGeometry.setAttribute('aShade', new THREE.BufferAttribute(flowShades, 1));
+  const flowMaterial = new THREE.ShaderMaterial({
+    uniforms: {
+      uOpacity: { value: 0 },
+      uColorShift: { value: 0 },
+      uPixelRatio: { value: 1 },
+    },
+    vertexShader: `
+      attribute float aSize;
+      attribute float aShade;
+      uniform float uPixelRatio;
+      varying float vShade;
+      void main() {
+        vec4 mvPosition = modelViewMatrix * vec4(position, 1.0);
+        gl_PointSize = aSize * uPixelRatio / max(1.0, -mvPosition.z);
+        gl_Position = projectionMatrix * mvPosition;
+        vShade = aShade;
+      }
+    `,
+    fragmentShader: `
+      uniform float uOpacity;
+      uniform float uColorShift;
+      varying float vShade;
+      void main() {
+        vec2 coord = gl_PointCoord - vec2(0.5);
+        float core = 1.0 - smoothstep(0.0, 0.28, length(coord));
+        float halo = 1.0 - smoothstep(0.2, 0.5, length(coord));
+        vec3 webWhite = vec3(0.97, 1.0, 0.985);
+        vec3 webBlue = vec3(0.30, 0.76, 1.0);
+        vec3 color = mix(webWhite, webBlue, uColorShift);
+        float alpha = (core * 0.9 + halo * 0.12) * uOpacity * (0.45 + 0.55 * vShade);
+        if (alpha < 0.012) discard;
+        gl_FragColor = vec4(color * (1.15 + 0.35 * vShade), alpha);
+      }
+    `,
+    transparent: true,
+    depthWrite: false,
+    blending: THREE.AdditiveBlending,
+  });
+  const flowPoints = new THREE.Points(flowGeometry, flowMaterial);
+  flowPoints.renderOrder = 6;
+  flowPoints.frustumCulled = false;
+  group.add(flowPoints);
+  const flowPosAttr = flowGeometry.getAttribute('position');
+  const flowTemp = new THREE.Vector3();
+  const updateFlow = (time) => {
+    for (let i = 0; i < flowDots.length; i += 1) {
+      const dot = flowDots[i];
+      const t = (dot.offset + dot.speed * time) % 1;
+      dot.curve.getPoint(t, flowTemp);
+      flowPositions[i * 3] = flowTemp.x;
+      flowPositions[i * 3 + 1] = flowTemp.y;
+      flowPositions[i * 3 + 2] = flowTemp.z;
+    }
+    flowPosAttr.needsUpdate = true;
+  };
   edgeRegistry.forEach(({ a, b, length }) => {
-    if (length < 0.06 || length > 1.3) return;
+    if (length < 0.06 || length > 0.5) return;
     if (isCubeOutlineEdge(nodeList[a], nodeList[b])) return;
-    const inFlesh = flesh.has(a) && flesh.has(b);
-    if (!inFlesh && random() > 0.1) return;
+    if (flesh.has(a) && flesh.has(b)) return; // the tree owns the woven net
+    if (random() > 0.1) return;
     const key = `${a}:${b}`;
     if (linkSet.has(key)) return;
     linkSet.add(key);
-    finalEdges.push({ a, b, length });
-  });
-  const hubs = nodeList
-    .map((node, index) => ({ node, index }))
-    .filter(({ node }) => node.degree >= 6)
-    .sort((a, b) => b.node.degree - a.node.degree)
-    .slice(0, 56);
-  let axons = 0;
-  hubs.forEach((hub) => {
-    if (axons >= 24) return;
-    let best = null;
-    let bestDistance = 1.5;
-    hubs.forEach((other) => {
-      if (other === hub) return;
-      const minIndex = Math.min(hub.index, other.index);
-      const maxIndex = Math.max(hub.index, other.index);
-      if (linkSet.has(`${minIndex}:${maxIndex}`)) return;
-      const distance = hub.node.position.distanceTo(other.node.position);
-      if (distance < bestDistance) {
-        bestDistance = distance;
-        best = other;
-      }
-    });
-    if (best) {
-      const minIndex = Math.min(hub.index, best.index);
-      const maxIndex = Math.max(hub.index, best.index);
-      linkSet.add(`${minIndex}:${maxIndex}`);
-      finalEdges.push({ a: minIndex, b: maxIndex, length: bestDistance });
-      axons += 1;
-    }
+    finalEdges.push({ a, b, length, shade: 0.3 });
   });
 
   const adjacency = new Map();
@@ -1549,7 +1784,8 @@ function createSceneFiveWeb() {
   const lineT = [];
   const lineDelays = [];
   const lineSkeleton = [];
-  finalEdges.forEach(({ a, b }) => {
+  const lineShade = [];
+  finalEdges.forEach(({ a, b, shade }) => {
     const pa = nodeList[a].position;
     const pb = nodeList[b].position;
     const delay = Math.min(1, 0.08 + ((depth.get(a) ?? 9) / maxDepth) * 0.58 + random() * 0.3);
@@ -1559,18 +1795,33 @@ function createSceneFiveWeb() {
     lineT.push(0, 1);
     lineDelays.push(delay, delay);
     lineSkeleton.push(0, 0);
+    const edgeShade = shade ?? 0.6;
+    lineShade.push(edgeShade, edgeShade);
   });
 
-  // Draw the space-colonization skeleton: early limbs render as the bright
-  // silk trunk, later generations as finer branch silk (kind 0.5); the
-  // filtered Voronoi edges above weave the leaf flesh around them.
-  skeletonSegments.forEach(({ a, b, delay, kind }) => {
+  // Draw the woven tree. The NET is the hero: branch strokes stay as the
+  // dimmer frame, cross-links carry the light, and it grows root-to-tip.
+  treeStrokes.forEach(({ a, b, gen, radius, along }) => {
+    const kind = Math.max(0.25, 1 - gen * 0.16);
+    const shade = Math.min(1, 0.3 + radius * 2.6) * 0.72;
+    const delay = 0.05 + ((gen * 0.9 + along * 0.6) / 5.4) * 0.5;
     linePositions.push(a.x, a.y, a.z, b.x, b.y, b.z);
     lineStarts.push(a.x, a.y, a.z, a.x, a.y, a.z);
     lineEnds.push(b.x, b.y, b.z, b.x, b.y, b.z);
     lineT.push(0, 1);
     lineDelays.push(delay, delay);
     lineSkeleton.push(kind, kind);
+    lineShade.push(shade, shade);
+  });
+  treeLinks.forEach(({ a, b, gen }) => {
+    const delay = 0.3 + ((gen * 0.9) / 5.4) * 0.5;
+    linePositions.push(a.x, a.y, a.z, b.x, b.y, b.z);
+    lineStarts.push(a.x, a.y, a.z, a.x, a.y, a.z);
+    lineEnds.push(b.x, b.y, b.z, b.x, b.y, b.z);
+    lineT.push(0, 1);
+    lineDelays.push(delay, delay);
+    lineSkeleton.push(0.24, 0.24);
+    lineShade.push(0.26, 0.26);
   });
 
   const lineGeometry = new THREE.BufferGeometry();
@@ -1580,6 +1831,7 @@ function createSceneFiveWeb() {
   lineGeometry.setAttribute('aT', new THREE.Float32BufferAttribute(lineT, 1));
   lineGeometry.setAttribute('aDelay', new THREE.Float32BufferAttribute(lineDelays, 1));
   lineGeometry.setAttribute('aSkeleton', new THREE.Float32BufferAttribute(lineSkeleton, 1));
+  lineGeometry.setAttribute('aShade', new THREE.Float32BufferAttribute(lineShade, 1));
   const lines = new THREE.LineSegments(lineGeometry, new THREE.ShaderMaterial({
     uniforms: {
       uReveal: { value: 0 },
@@ -1592,15 +1844,18 @@ function createSceneFiveWeb() {
       attribute float aT;
       attribute float aDelay;
       attribute float aSkeleton;
+      attribute float aShade;
       uniform float uReveal;
       varying float vGlow;
       varying float vDepth;
       varying float vSkeleton;
+      varying float vShade;
       void main() {
         float growth = clamp((uReveal - aDelay * 0.72) / 0.28, 0.0, 1.0);
         vec3 webPosition = mix(aStart, aEnd, min(aT, growth));
         vGlow = 0.45 + 0.55 * growth;
         vSkeleton = aSkeleton;
+        vShade = aShade;
         vec4 mvPosition = modelViewMatrix * vec4(webPosition, 1.0);
         vDepth = clamp(-mvPosition.z / 19.0, 0.0, 1.0);
         gl_Position = projectionMatrix * mvPosition;
@@ -1612,6 +1867,7 @@ function createSceneFiveWeb() {
       varying float vGlow;
       varying float vDepth;
       varying float vSkeleton;
+      varying float vShade;
       void main() {
         vec3 webWhite = vec3(0.97, 1.0, 0.985);
         vec3 webBlue = vec3(0.30, 0.76, 1.0);
@@ -1622,8 +1878,9 @@ function createSceneFiveWeb() {
         float isBranch = step(0.25, vSkeleton) * (1.0 - isTrunk);
         float fillDim = mix(0.38, 1.0, isBranch + isTrunk);
         float boost = 1.0 + isBranch * 0.25 + isTrunk * 0.85;
-        color = mix(color, vec3(1.0), isTrunk * 0.32 + isBranch * 0.1);
-        float alpha = uOpacity * vGlow * mix(1.0, 0.6, vDepth) * fillDim * boost;
+        color = mix(color, vec3(1.0), isTrunk * 0.3 + isBranch * 0.02);
+        // Filament shading: trunk strokes glow brighter than the woven links.
+        float alpha = uOpacity * vGlow * mix(1.0, 0.6, vDepth) * fillDim * boost * mix(0.45, 1.35, vShade);
         if (alpha < 0.01) discard;
         gl_FragColor = vec4(color * (1.05 + 0.5 * vGlow), alpha);
       }
@@ -1639,12 +1896,15 @@ function createSceneFiveWeb() {
   window.__webDebug = {
     seeds: seeds.length,
     edges: finalEdges.length,
-    skeleton: skeletonSegments.length,
+    treeStrokes: treeStrokes.length,
+    treeLinks: treeLinks.length,
+    flowDots: flowDots.length,
+    lineages: lineages.length,
     flesh: flesh.size,
     growthIters: lastGrowthIter,
     nodes: nodeList.length,
   };
-  return { group, points, lines };
+  return { group, points, lines, flowMaterial, updateFlow };
 }
 
 function createBackgroundStars() {
@@ -3404,7 +3664,14 @@ function updateSceneFive(web, state, frameTime, field) {
   const light = smoothstep(THREE.MathUtils.clamp(state.distributedLight, 0, 1));
   web.group.position.copy(field.imprintTarget);
   web.group.position.y += state.lift * 0.3;
-  web.group.rotation.set(state.rotation * 0.3, state.rotation, state.rotation * 0.16);
+  // A slight sideways tilt from the first frame of the assembly: the cube
+  // shows two faces right away instead of reading as a flat dot decal, and
+  // the third-turn rotation later plays on top of this offset.
+  web.group.rotation.set(
+    state.rotation * 0.3 + 0.17,
+    state.rotation + 0.35,
+    state.rotation * 0.16 - 0.11,
+  );
 
   const foamUniforms = web.points.material.uniforms;
   const weaveProgress = smoothstep(THREE.MathUtils.clamp(state.networkReveal, 0, 1));
@@ -3419,6 +3686,12 @@ function updateSceneFive(web, state, frameTime, field) {
   webUniforms.uReveal.value = weaveProgress;
   webUniforms.uColorShift.value = smoothstep(THREE.MathUtils.clamp(state.lineColorShift, 0, 1));
   webUniforms.uOpacity.value = Math.min(1, weaveProgress * 1.05);
+  if (web.updateFlow) {
+    const flowUniforms = web.flowMaterial.uniforms;
+    flowUniforms.uOpacity.value = Math.min(1, weaveProgress * 1.1);
+    flowUniforms.uColorShift.value = webUniforms.uColorShift.value;
+    web.updateFlow(frameTime);
+  }
 }
 
 function updateWaveEquation(time) {
@@ -3718,6 +3991,9 @@ function resize() {
   camera.aspect = width / height;
   camera.updateProjectionMatrix();
   sceneFiveWeb.points.material.uniforms.uPixelRatio.value = outputScale;
+  if (sceneFiveWeb.flowMaterial) {
+    sceneFiveWeb.flowMaterial.uniforms.uPixelRatio.value = outputScale;
+  }
   drawDeepSky();
 }
 
