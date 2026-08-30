@@ -5,7 +5,9 @@ export const SCENE_THREE_END = 16.167;
 export const SCENE_FOUR_START = SCENE_THREE_END;
 export const SCENE_FIVE_START = 24.6;
 export const SCENE_FIVE_END = 36.667;
-export const SCENE_DURATION = SCENE_FIVE_END;
+export const SCENE_SIX_START = SCENE_FIVE_END;
+export const SCENE_SIX_END = 42.2;
+export const SCENE_DURATION = SCENE_SIX_END;
 export const TOTAL_FRAMES = Math.round(SCENE_DURATION * FPS);
 export const SCENE_FOUR_START_OFFSET_LY = -83.2;
 export const SCENE_FOUR_END_OFFSET_LY = -1.5;
@@ -213,6 +215,26 @@ export function getSceneFiveState(time) {
     lineColorShift: smoothRange(time, SCENE_FIVE_BLUE_START, SCENE_FIVE_BLUE_END),
     distributedLight,
     lift: smoothRange(time, 32.18, 35.3),
+    reveal: 1,
+  };
+}
+
+// Scene six beats: the woven tree from scene five holds its final frame while
+// star-flowers bloom along its twigs; once every flower is open, two galactic
+// cores fade into the background and graze past each other, flinging tidal
+// bridges and tails (Toomre & Toomre 1972) as the narration reaches the
+// "we are one point of light" close.
+export const SCENE_SIX_BLOOM_START = SCENE_SIX_START + 0.15;
+export const SCENE_SIX_BLOOM_END = SCENE_SIX_START + 2.6;
+export const SCENE_SIX_CORES_START = SCENE_SIX_START + 2.55;
+export const SCENE_SIX_CORES_END = SCENE_SIX_START + 3.35;
+export const SCENE_SIX_GRAZE = SCENE_SIX_START + 4.4;
+
+export function getSceneSixState(time) {
+  return {
+    active: time >= SCENE_SIX_START && time <= SCENE_SIX_END,
+    bloom: smoothRange(time, SCENE_SIX_BLOOM_START, SCENE_SIX_BLOOM_END),
+    coresFade: smoothRange(time, SCENE_SIX_CORES_START, SCENE_SIX_CORES_END),
     reveal: 1,
   };
 }

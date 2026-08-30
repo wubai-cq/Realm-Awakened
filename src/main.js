@@ -19,11 +19,13 @@ import {
   TOTAL_FRAMES,
   PYRAMID_RAYS,
   SCENE_FIVE_POINT_LIGHT_COLOR,
+  SCENE_SIX_START,
   getCameraPushAtTime,
   getLabelRevealAtTime,
   getRecombinationState,
   getSceneFourState,
   getSceneFiveState,
+  getSceneSixState,
   getSceneThreeState,
   getSelectionAtTime,
   getSubtitleAtTime,
@@ -283,6 +285,9 @@ const sceneFourField = createSceneFourField(texture, labelsRoot, sceneFourScreen
 scene.add(sceneFourField.group);
 const sceneFiveWeb = createSceneFiveWeb();
 sceneFourField.group.add(sceneFiveWeb.group);
+const sceneSix = createSceneSix(sceneFiveWeb.bloomAnchors);
+sceneFourField.group.add(sceneSix.group);
+sceneFiveWeb.group.add(sceneSix.flowerGroup);
 
 const labels = nodeDefinitions.map((definition) => {
   const label = document.createElement('div');
@@ -1904,7 +1909,558 @@ function createSceneFiveWeb() {
     growthIters: lastGrowthIter,
     nodes: nodeList.length,
   };
-  return { group, points, lines, flowMaterial, updateFlow };
+  // Bloom anchors: evenly spaced twig points (generation 3+) where the scene
+  // six star-flowers open, so the blossoms sit exactly on the woven tree.
+  // One anchor per 0.55-unit cell keeps the bloom scattered, not dense.
+  const bloomAnchors = [];
+  {
+    const seen = new Set();
+    treePoints.forEach((pt) => {
+      if (pt.gen < 3) return;
+      const k = `${Math.round(pt.p.x / 0.55)},${Math.round(pt.p.y / 0.55)},${Math.round(pt.p.z / 0.55)}`;
+      if (seen.has(k)) return;
+      seen.add(k);
+      bloomAnchors.push({ p: pt.p.clone(), gen: pt.gen });
+    });
+  }
+  return { group, points, lines, flowMaterial, updateFlow, bloomAnchors };
+}
+
+// Scene six: the woven tree holds its final frame, star-flowers bloom along
+// its twigs (pixel-art sprites revealed by an organic morphing blob, the
+// poster's lily technique rebuilt in a point shader), and once the canopy is
+// in full bloom two galactic cores fade into the background and graze past
+// each other — a faithful port of shapeof.world's galaxy-collision scene
+// (Toomre & Toomre 1972): a pre-integrated relative orbit for the two cores,
+// tilted test-particle disks spinning at pattern speed, and a baked leapfrog
+// live phase that spins out the bridges and tidal tails. Everything is a pure
+// function of story time, so debug seeks stay frame-exact.
+function createSceneSix(anchors) {
+  const group = new THREE.Group();
+  const flowerGroup = new THREE.Group();
+  let seed = 20260830;
+  const random = () => {
+    seed = (seed * 16807) % 2147483647;
+    return seed / 2147483647;
+  };
+  const gaussian = () => {
+    const u = Math.max(random(), 0.0001);
+    return Math.sqrt(-2 * Math.log(u)) * Math.cos(Math.PI * 2 * random());
+  };
+
+  // ---------- star-flowers ----------
+  // Pixel-art bloom texture: 24x24 halftone lily drawn once, nearest-neighbor
+  // upscaled so every pixel stays crisp.
+  const flowerCanvas = document.createElement('canvas');
+  flowerCanvas.width = 24;
+  flowerCanvas.height = 24;
+  const fctx = flowerCanvas.getContext('2d');
+  const px = (x, y, c) => {
+    if (x < 0 || y < 0 || x > 23 || y > 23) return;
+    fctx.fillStyle = c;
+    fctx.fillRect(x, y, 1, 1);
+  };
+  for (let p = 0; p < 6; p += 1) {
+    const ang = (p / 6) * Math.PI * 2 + 0.35;
+    const cx = 11.5 + Math.cos(ang) * 5.4;
+    const cy = 11.5 + Math.sin(ang) * 5.4;
+    for (let dy = -4; dy <= 4; dy += 1) {
+      for (let dx = -4; dx <= 4; dx += 1) {
+        const d = Math.hypot(dx, dy);
+        if (d > 4.1) continue;
+        const xi = Math.round(cx + dx);
+        const yi = Math.round(cy + dy);
+        const shade = d > 3.3
+          ? ((dx + dy) & 1 ? '#c9a2f2' : '#a878e6')
+          : d > 2.1
+            ? ((dx + dy) & 1 ? '#ffe2f1' : '#ffd0e8')
+            : '#ffc5dc';
+        px(xi, yi, shade);
+      }
+    }
+  }
+  for (let dy = -3; dy <= 3; dy += 1) {
+    for (let dx = -3; dx <= 3; dx += 1) {
+      const d = Math.hypot(dx, dy);
+      if (d < 1.3) px(11 + dx, 11 + dy, '#ffdf8f');
+      else if (d < 2.6) px(11 + dx, 11 + dy, '#f7b04b');
+    }
+  }
+  const flowerTexture = new THREE.CanvasTexture(flowerCanvas);
+  flowerTexture.magFilter = THREE.NearestFilter;
+  flowerTexture.minFilter = THREE.NearestFilter;
+
+  const flowerCount = anchors.length;
+  const flowerPositions = new Float32Array(flowerCount * 3);
+  const flowerDelays = new Float32Array(flowerCount);
+  const flowerSeeds = new Float32Array(flowerCount);
+  const flowerSizes = new Float32Array(flowerCount);
+  const flowerTints = new Float32Array(flowerCount * 3);
+  anchors.forEach((a, i) => {
+    flowerPositions[i * 3] = a.p.x;
+    flowerPositions[i * 3 + 1] = a.p.y;
+    flowerPositions[i * 3 + 2] = a.p.z;
+    flowerDelays[i] = THREE.MathUtils.clamp((a.gen - 3) / 2.2, 0, 1) * 0.6 + random() * 0.4;
+    flowerSeeds[i] = random();
+    flowerSizes[i] = 0.17 + random() * 0.15;
+    const warm = random() < 0.32;
+    flowerTints.set(warm ? [1, 0.88, 0.7] : [1, 1, 1], i * 3);
+  });
+  const flowerGeometry = new THREE.BufferGeometry();
+  flowerGeometry.setAttribute('position', new THREE.BufferAttribute(flowerPositions, 3));
+  flowerGeometry.setAttribute('aDelay', new THREE.BufferAttribute(flowerDelays, 1));
+  flowerGeometry.setAttribute('aSeed', new THREE.BufferAttribute(flowerSeeds, 1));
+  flowerGeometry.setAttribute('aSize', new THREE.BufferAttribute(flowerSizes, 1));
+  flowerGeometry.setAttribute('aTint', new THREE.BufferAttribute(flowerTints, 3));
+  const flowerMaterial = new THREE.ShaderMaterial({
+    uniforms: {
+      uBloom: { value: 0 },
+      uTime: { value: 0 },
+      uOpacity: { value: 1 },
+      uMap: { value: flowerTexture },
+      uScale: { value: 800 },
+    },
+    vertexShader: `
+      attribute float aDelay;
+      attribute float aSeed;
+      attribute float aSize;
+      attribute vec3 aTint;
+      uniform float uBloom;
+      uniform float uTime;
+      uniform float uScale;
+      varying float vLocal;
+      varying float vSeed;
+      varying vec3 vTint;
+      void main() {
+        float local = clamp((uBloom * 1.15 - aDelay * 0.75) / 0.4, 0.0, 1.0);
+        local = local * local * (3.0 - 2.0 * local);
+        float pop = 1.0 + 0.22 * sin(local * 3.14159) * (1.0 - local);
+        vLocal = local;
+        vSeed = aSeed;
+        vTint = aTint;
+        vec4 mv = modelViewMatrix * vec4(position, 1.0);
+        mv.xy += vec2(
+          sin(uTime * 1.1 + aSeed * 6.283),
+          cos(uTime * 0.9 + aSeed * 12.5)
+        ) * 0.02 * local;
+        gl_PointSize = aSize * pop * uScale / max(1.0, -mv.z) * (0.35 + 0.65 * local);
+        gl_Position = projectionMatrix * mv;
+      }
+    `,
+    fragmentShader: `
+      uniform sampler2D uMap;
+      uniform float uOpacity;
+      varying float vLocal;
+      varying float vSeed;
+      varying vec3 vTint;
+      void main() {
+        if (vLocal <= 0.002) discard;
+        vec2 uv = gl_PointCoord - vec2(0.5);
+        float ang = vSeed * 6.2832;
+        float c = cos(ang);
+        float s = sin(ang);
+        uv = mat2(c, -s, s, c) * uv;
+        // Organic morphing-blob reveal: a noisy growing disk unmasks the
+        // pixels, like the poster's lily wipe.
+        float r = length(uv);
+        float pa = atan(uv.y, uv.x);
+        float n = sin(pa * 3.0 + vSeed * 43.0) * 0.15 + sin(pa * 5.0 - vSeed * 21.0) * 0.1;
+        float blobR = vLocal * 0.78;
+        float mask = smoothstep(blobR + 0.12 + n, blobR - 0.12 + n, r);
+        vec4 tex = texture2D(uMap, uv + vec2(0.5));
+        float alpha = tex.a * mask * uOpacity * (0.5 + 0.5 * vLocal);
+        if (alpha < 0.02) discard;
+        vec3 col = tex.rgb * vTint * 0.78;
+        col += vec3(1.0, 0.86, 0.62) * (1.0 - smoothstep(0.0, 0.2, r)) * 0.16 * vLocal;
+        gl_FragColor = vec4(col, alpha);
+      }
+    `,
+    transparent: true,
+    depthWrite: false,
+    blending: THREE.NormalBlending,
+  });
+  const flowerPoints = new THREE.Points(flowerGeometry, flowerMaterial);
+  flowerPoints.renderOrder = 7;
+  flowerPoints.frustumCulled = false;
+  flowerGroup.add(flowerPoints);
+
+  // ---------- the grazing encounter ----------
+  const SOFT2 = 0.09;
+  const TOTAL_MASS = 2.25;
+  const CORE2_MASS = 1.25;
+  const START_SEP = 31.2;
+  const PARABOLIC_V = Math.sqrt(
+    2 * TOTAL_MASS * (1 / START_SEP - 1 / 1.25) / (1 - (START_SEP / 1.25) ** 2),
+  );
+  function buildOrbitTrack() {
+    const dt = 0.05;
+    const rel = [];
+    let x = START_SEP;
+    let y = 0;
+    let z = 0;
+    let vx = 0;
+    let vy = 0;
+    let vz = -PARABOLIC_V;
+    let tPeri = -1;
+    let prevSep = Infinity;
+    for (let i = 0; i < 4000; i += 1) {
+      const t = i * dt;
+      const sep = Math.sqrt(x * x + y * y + z * z);
+      // The graze is the FIRST periapsis passage — the drag term merges the
+      // pair much later, so stop the track eight units past the flyby.
+      if (tPeri < 0 && i > 1 && sep > prevSep) tPeri = t - dt;
+      rel.push(x, y, z);
+      if (tPeri >= 0 && t - tPeri > 8) break;
+      const sub = sep < 2 ? 48 : 8;
+      const h = dt / sub;
+      for (let s = 0; s < sub; s += 1) {
+        const r = Math.sqrt(x * x + y * y + z * z);
+        const den = r * r + SOFT2;
+        const acc = TOTAL_MASS / (den * Math.sqrt(den));
+        const rr = r / 3.2;
+        const drag = (0.011 * (1 + 12 * Math.exp(-r))) / (1 + rr * rr * rr);
+        vx += (-x * acc - vx * drag) * h;
+        vy += (-y * acc - vy * drag) * h;
+        vz += (-z * acc - vz * drag) * h;
+        x += vx * h;
+        y += vy * h;
+        z += vz * h;
+      }
+      prevSep = sep;
+    }
+    return { dt, rel: Float32Array.from(rel), tPeri, count: rel.length / 3 };
+  }
+  const track = buildOrbitTrack();
+  const trackAt = (t, out) => {
+    const f = Math.min(Math.max(t, 0) / track.dt, track.count - 1.001);
+    const i = Math.floor(f);
+    const a = f - i;
+    const o = i * 3;
+    const s2 = (i + 1) * 3;
+    out.x = track.rel[o] + (track.rel[s2] - track.rel[o]) * a;
+    out.y = track.rel[o + 1] + (track.rel[s2 + 1] - track.rel[o + 1]) * a;
+    out.z = track.rel[o + 2] + (track.rel[s2 + 2] - track.rel[o + 2]) * a;
+    return out;
+  };
+  const CORE1_W = -1.25 / TOTAL_MASS;
+  const CORE2_W = 1 / TOTAL_MASS;
+  const orientMatrix = (incDeg, nodeDeg) => {
+    const i = (incDeg * Math.PI) / 180;
+    const n = (nodeDeg * Math.PI) / 180;
+    const ci = Math.cos(i);
+    const si = Math.sin(i);
+    const cn = Math.cos(n);
+    const sn = Math.sin(n);
+    return [cn, sn * si, sn * ci, 0, ci, -si, -sn, cn * si, cn * ci];
+  };
+  const applyMat = (m, x, y, z, out) => {
+    out.x = m[0] * x + m[1] * y + m[2] * z;
+    out.y = m[3] * x + m[4] * y + m[5] * z;
+    out.z = m[6] * x + m[7] * y + m[8] * z;
+  };
+  const orient = [orientMatrix(16, 14), orientMatrix(32, -34)];
+  const softOrbitSpeed = (mass, r) => Math.sqrt((mass * r * r) / ((r * r + SOFT2) * Math.sqrt(r * r + SOFT2)));
+  const patternOmega = softOrbitSpeed(1, 0.7) / 0.7;
+  const PALETTES = [
+    { core: [1, 0.86, 0.62], edge: [0.86, 0.86, 0.78] },
+    { core: [1, 0.92, 0.82], edge: [0.55, 0.68, 1] },
+  ];
+  const sampleRadius = () => {
+    for (let k = 0; k < 48; k += 1) {
+      const r = 0.16 + (1.3 - 0.16) * random();
+      if (random() < (r / 0.42) * Math.exp(1 - r / 0.42)) return r;
+    }
+    return 0.16 + (1.3 - 0.16) * random();
+  };
+  const PER_GALAXY = 1400;
+  const PART_COUNT = PER_GALAXY * 2;
+  const disk = {
+    host: new Uint8Array(PART_COUNT),
+    r0: new Float32Array(PART_COUNT),
+    th0: new Float32Array(PART_COUNT),
+    z0: new Float32Array(PART_COUNT),
+    color: new Float32Array(PART_COUNT * 3),
+    size: new Float32Array(PART_COUNT),
+  };
+  for (let i = 0; i < PART_COUNT; i += 1) {
+    const host = i % 2;
+    const r = random() < 0.26
+      ? Math.sqrt(0.66 + random() * (1.3 * 1.3 - 0.66))
+      : sampleRadius();
+    let th;
+    if (r > 0.46 && random() > 0.26) {
+      th = Math.log(r / 0.46) / Math.tan((15 * Math.PI) / 180)
+        + (random() < 0.5 ? 0 : Math.PI)
+        + gaussian() * 0.34;
+    } else {
+      th = random() * Math.PI * 2;
+    }
+    disk.host[i] = host;
+    disk.r0[i] = r;
+    disk.th0[i] = th;
+    disk.z0[i] = gaussian() * (r < 0.3 ? 0.11 : 0.028 * (1 + r));
+    const pal = PALETTES[host];
+    const s01 = Math.min(1, Math.max(0, (r - 0.16) / (1.3 - 0.16)));
+    const sm = s01 * s01 * (3 - 2 * s01);
+    disk.color[i * 3] = Math.min(1.2, (pal.core[0] + (pal.edge[0] - pal.core[0]) * sm) * (0.82 + random() * 0.34));
+    disk.color[i * 3 + 1] = Math.min(1.2, (pal.core[1] + (pal.edge[1] - pal.core[1]) * sm) * (0.82 + random() * 0.34));
+    disk.color[i * 3 + 2] = Math.min(1.2, (pal.core[2] + (pal.edge[2] - pal.core[2]) * sm) * (0.82 + random() * 0.34));
+    disk.size[i] = 0.035 + random() * 0.05;
+  }
+  // Bake the live phase: from 4.5 time units before periapsis to 6 after,
+  // the test particles fly free under both cores' gravity (leapfrog, the
+  // site's integrator), leaving the bridges and tidal tails.
+  const tLive = track.tPeri - 4.5;
+  const tEnd = track.tPeri + 6;
+  const H = 0.06;
+  const SAMPLES = Math.ceil((tEnd - tLive) / H) + 1;
+  const baked = new Float32Array(SAMPLES * PART_COUNT * 3);
+  const tmpPos = new Float32Array(PART_COUNT * 3);
+  const tmpVel = new Float32Array(PART_COUNT * 3);
+  const rot = { x: 0, y: 0, z: 0 };
+  const coreNow = trackAt(tLive, { x: 0, y: 0, z: 0 });
+  const coreNext = trackAt(tLive + 0.05, { x: 0, y: 0, z: 0 });
+  const coreVel = {
+    x: (coreNext.x - coreNow.x) / 0.05,
+    y: (coreNext.y - coreNow.y) / 0.05,
+    z: (coreNext.z - coreNow.z) / 0.05,
+  };
+  for (let i = 0; i < PART_COUNT; i += 1) {
+    const host = disk.host[i];
+    const r = disk.r0[i];
+    const th = disk.th0[i] + patternOmega * tLive;
+    applyMat(orient[host], r * Math.cos(th), disk.z0[i], r * Math.sin(th), rot);
+    const cw = host === 0 ? CORE1_W : CORE2_W;
+    tmpPos[i * 3] = coreNow.x * cw + rot.x;
+    tmpPos[i * 3 + 1] = coreNow.y * cw + rot.y;
+    tmpPos[i * 3 + 2] = coreNow.z * cw + rot.z;
+    const spinSpeed = softOrbitSpeed(host === 0 ? 1 : CORE2_MASS, r);
+    applyMat(orient[host], -Math.sin(th) * spinSpeed, 0, Math.cos(th) * spinSpeed, rot);
+    tmpVel[i * 3] = coreVel.x * cw + rot.x;
+    tmpVel[i * 3 + 1] = coreVel.y * cw + rot.y;
+    tmpVel[i * 3 + 2] = coreVel.z * cw + rot.z;
+  }
+  const bakeCoreA = { x: 0, y: 0, z: 0 };
+  const bakeCoreA2 = { x: 0, y: 0, z: 0 };
+  for (let s = 0; s < SAMPLES; s += 1) {
+    const t = tLive + s * H;
+    baked.set(tmpPos, s * PART_COUNT * 3);
+    trackAt(t, bakeCoreA);
+    trackAt(t + H * 0.5, bakeCoreA2);
+    const bAx = bakeCoreA.x * CORE1_W;
+    const bAy = bakeCoreA.y * CORE1_W;
+    const bAz = bakeCoreA.z * CORE1_W;
+    const bBx = bakeCoreA.x * CORE2_W;
+    const bBy = bakeCoreA.y * CORE2_W;
+    const bBz = bakeCoreA.z * CORE2_W;
+    const bAx2 = bakeCoreA2.x * CORE1_W;
+    const bAy2 = bakeCoreA2.y * CORE1_W;
+    const bAz2 = bakeCoreA2.z * CORE1_W;
+    const bBx2 = bakeCoreA2.x * CORE2_W;
+    const bBy2 = bakeCoreA2.y * CORE2_W;
+    const bBz2 = bakeCoreA2.z * CORE2_W;
+    for (let i = 0; i < PART_COUNT; i += 1) {
+      const a = i * 3;
+      let dx = bAx - tmpPos[a];
+      let dy = bAy - tmpPos[a + 1];
+      let dz = bAz - tmpPos[a + 2];
+      let d2 = dx * dx + dy * dy + dz * dz + SOFT2;
+      let inv = 1 / (d2 * Math.sqrt(d2));
+      let ax = dx * inv;
+      let ay = dy * inv;
+      let az = dz * inv;
+      dx = bBx - tmpPos[a];
+      dy = bBy - tmpPos[a + 1];
+      dz = bBz - tmpPos[a + 2];
+      d2 = dx * dx + dy * dy + dz * dz + SOFT2;
+      inv = CORE2_MASS / (d2 * Math.sqrt(d2));
+      ax += dx * inv;
+      ay += dy * inv;
+      az += dz * inv;
+      let vx2 = tmpVel[a] + ax * H;
+      let vy2 = tmpVel[a + 1] + ay * H;
+      let vz2 = tmpVel[a + 2] + az * H;
+      let px2 = tmpPos[a] + vx2 * H * 0.5;
+      let py2 = tmpPos[a + 1] + vy2 * H * 0.5;
+      let pz2 = tmpPos[a + 2] + vz2 * H * 0.5;
+      dx = bAx2 - px2;
+      dy = bAy2 - py2;
+      dz = bAz2 - pz2;
+      d2 = dx * dx + dy * dy + dz * dz + SOFT2;
+      inv = 1 / (d2 * Math.sqrt(d2));
+      ax = dx * inv;
+      ay = dy * inv;
+      az = dz * inv;
+      dx = bBx2 - px2;
+      dy = bBy2 - py2;
+      dz = bBz2 - pz2;
+      d2 = dx * dx + dy * dy + dz * dz + SOFT2;
+      inv = CORE2_MASS / (d2 * Math.sqrt(d2));
+      ax += dx * inv;
+      ay += dy * inv;
+      az += dz * inv;
+      tmpVel[a] = vx2 + ax * H;
+      tmpVel[a + 1] = vy2 + ay * H;
+      tmpVel[a + 2] = vz2 + az * H;
+      tmpPos[a] = px2 + tmpVel[a] * H * 0.5;
+      tmpPos[a + 1] = py2 + tmpVel[a + 1] * H * 0.5;
+      tmpPos[a + 2] = pz2 + tmpVel[a + 2] * H * 0.5;
+    }
+  }
+  const tailGeometry = new THREE.BufferGeometry();
+  const tailPositions = new Float32Array(PART_COUNT * 3);
+  tailGeometry.setAttribute('position', new THREE.BufferAttribute(tailPositions, 3));
+  tailGeometry.setAttribute('aColor', new THREE.BufferAttribute(disk.color, 3));
+  tailGeometry.setAttribute('aSize', new THREE.BufferAttribute(disk.size, 1));
+  const tailMaterial = new THREE.ShaderMaterial({
+    uniforms: {
+      uOpacity: { value: 0 },
+      uScale: { value: 800 },
+    },
+    vertexShader: `
+      attribute vec3 aColor;
+      attribute float aSize;
+      uniform float uScale;
+      varying vec3 vColor;
+      void main() {
+        vColor = aColor;
+        vec4 mv = modelViewMatrix * vec4(position, 1.0);
+        gl_PointSize = aSize * uScale / max(1.0, -mv.z);
+        gl_Position = projectionMatrix * mv;
+      }
+    `,
+    fragmentShader: `
+      uniform float uOpacity;
+      varying vec3 vColor;
+      void main() {
+        float r = length(gl_PointCoord - vec2(0.5));
+        float alpha = (1.0 - smoothstep(0.08, 0.5, r)) * uOpacity;
+        if (alpha < 0.015) discard;
+        gl_FragColor = vec4(vColor * 1.05, alpha);
+      }
+    `,
+    transparent: true,
+    depthWrite: false,
+    blending: THREE.AdditiveBlending,
+  });
+  const tailPoints = new THREE.Points(tailGeometry, tailMaterial);
+  tailPoints.renderOrder = 4;
+  tailPoints.frustumCulled = false;
+  group.add(tailPoints);
+
+  // Core glow sprites: one warm gold, one white-blue, matching the site's
+  // two galaxy palettes.
+  const coreCanvas = document.createElement('canvas');
+  coreCanvas.width = 64;
+  coreCanvas.height = 64;
+  const cctx = coreCanvas.getContext('2d');
+  const coreGrad = cctx.createRadialGradient(32, 32, 2, 32, 32, 31);
+  coreGrad.addColorStop(0, 'rgba(255,255,255,1)');
+  coreGrad.addColorStop(0.25, 'rgba(255,238,200,0.85)');
+  coreGrad.addColorStop(0.6, 'rgba(255,205,130,0.25)');
+  coreGrad.addColorStop(1, 'rgba(255,190,110,0)');
+  cctx.fillStyle = coreGrad;
+  cctx.fillRect(0, 0, 64, 64);
+  const coreTexture = new THREE.CanvasTexture(coreCanvas);
+  const corePositions = new Float32Array(6);
+  const coreGeometry = new THREE.BufferGeometry();
+  coreGeometry.setAttribute('position', new THREE.BufferAttribute(corePositions, 3));
+  const coreMaterial = new THREE.ShaderMaterial({
+    uniforms: {
+      uOpacity: { value: 0 },
+      uScale: { value: 800 },
+      uMap: { value: coreTexture },
+    },
+    vertexShader: `
+      attribute float aSize;
+      uniform float uScale;
+      void main() {
+        vec4 mv = modelViewMatrix * vec4(position, 1.0);
+        gl_PointSize = aSize * uScale / max(1.0, -mv.z);
+        gl_Position = projectionMatrix * mv;
+      }
+    `,
+    fragmentShader: `
+      uniform sampler2D uMap;
+      uniform float uOpacity;
+      void main() {
+        vec4 tex = texture2D(uMap, gl_PointCoord);
+        float alpha = tex.a * uOpacity;
+        if (alpha < 0.01) discard;
+        gl_FragColor = vec4(tex.rgb, alpha);
+      }
+    `,
+    transparent: true,
+    depthWrite: false,
+    blending: THREE.AdditiveBlending,
+  });
+  coreGeometry.setAttribute('aSize', new THREE.BufferAttribute(new Float32Array([0.85, 0.7]), 1));
+  const corePoints = new THREE.Points(coreGeometry, coreMaterial);
+  corePoints.renderOrder = 5;
+  corePoints.frustumCulled = false;
+  group.add(corePoints);
+
+  // Background placement: right of the woven tree, far behind the foam cube.
+  group.position.set(2.6, 0.9, -6.8);
+  group.scale.setScalar(0.62);
+
+  // Story-time mapping: cores fade in once the bloom is complete, swing
+  // through periapsis (the graze) near the narration's close, and the tails
+  // are still flinging at the final frame.
+  const CORES_IN = 2.55;
+  const GRAZE_AT = 4.4;
+  const rate = (track.tPeri - tLive) / (GRAZE_AT - CORES_IN);
+  const simAt = (storyOffset) => Math.min(
+    tEnd,
+    tLive + Math.max(0, storyOffset - CORES_IN) * rate,
+  );
+  const readBaked = (tSim) => {
+    const f = Math.min(Math.max((tSim - tLive) / H, 0), SAMPLES - 1.001);
+    const i = Math.floor(f);
+    const a = f - i;
+    const baseA = i * PART_COUNT * 3;
+    const baseB = (i + 1) * PART_COUNT * 3;
+    for (let k = 0; k < PART_COUNT * 3; k += 1) {
+      tailPositions[k] = baked[baseA + k] + (baked[baseB + k] - baked[baseA + k]) * a;
+    }
+    tailGeometry.getAttribute('position').needsUpdate = true;
+  };
+  const coreA = { x: 0, y: 0, z: 0 };
+  const coreB = { x: 0, y: 0, z: 0 };
+  const update = (frameTime, state) => {
+    const offset = frameTime - SCENE_SIX_START;
+    flowerMaterial.uniforms.uBloom.value = state.bloom;
+    flowerMaterial.uniforms.uTime.value = frameTime;
+    tailMaterial.uniforms.uOpacity.value = state.coresFade * 0.9;
+    coreMaterial.uniforms.uOpacity.value = state.coresFade;
+    const tSim = simAt(offset);
+    readBaked(tSim);
+    trackAt(tSim, coreA);
+    trackAt(tSim, coreB);
+    corePositions[0] = coreA.x * CORE1_W;
+    corePositions[1] = coreA.y * CORE1_W;
+    corePositions[2] = coreA.z * CORE1_W;
+    corePositions[3] = coreA.x * CORE2_W;
+    corePositions[4] = coreA.y * CORE2_W;
+    corePositions[5] = coreA.z * CORE2_W;
+    coreGeometry.getAttribute('position').needsUpdate = true;
+    const pulse = 1 + Math.sin(frameTime * 5.2) * 0.05;
+    coreMaterial.uniforms.uScale.value = 800 * pulse;
+  };
+  return {
+    group,
+    flowerGroup,
+    flowerMaterial,
+    tailMaterial,
+    coreMaterial,
+    update,
+    handleResize: (clientHeight, pixelRatio) => {
+      const s = (clientHeight * pixelRatio) / (2 * Math.tan((43 * Math.PI) / 360));
+      flowerMaterial.uniforms.uScale.value = s;
+      tailMaterial.uniforms.uScale.value = s;
+      coreMaterial.uniforms.uScale.value = s;
+    },
+  };
 }
 
 function createBackgroundStars() {
@@ -3717,6 +4273,13 @@ function updateWaveEquation(time) {
   waveEquationPathEl.style.strokeDashoffset = `${96 - state.progress * 192}`;
 }
 
+function updateSceneSix(six, state, frameTime) {
+  six.group.visible = state.active;
+  six.flowerGroup.visible = state.active;
+  if (!state.active) return;
+  six.update(frameTime, state);
+}
+
 function updateScene(time, motionTime = time) {
   // Keep URL debug seeks exact; audio playback remains quantized to the 30 FPS
   // render clock for deterministic exported frames.
@@ -3739,8 +4302,11 @@ function updateScene(time, motionTime = time) {
     ? sceneFour
     : { ...sceneFour, active: false };
   const sceneFiveVisible = sceneFive.active && frameTime > SCENE_FIVE_START;
-  deepSkyRoot.style.opacity = sceneFourVisible || sceneFiveVisible ? '1' : '0';
-  milkyWayWashEl.style.opacity = sceneFiveVisible ? '0.05' : '';
+  const sceneSixState = getSceneSixState(frameTime);
+  const sceneSixActive = sceneSixState.active;
+  const sceneFiveHeld = sceneFiveVisible || sceneSixActive;
+  deepSkyRoot.style.opacity = sceneFourVisible || sceneFiveHeld ? '1' : '0';
+  milkyWayWashEl.style.opacity = sceneFiveHeld ? '0.05' : '';
   const storyTime = frameTime >= SCENE_ONE_END ? recombination.waveTime : frameTime;
   const sceneThreeTransition = THREE.MathUtils.smoothstep(frameTime, SCENE_TWO_END, SCENE_TWO_END + 0.52);
   const oldFieldVisibility = 1 - sceneThreeTransition;
@@ -3751,7 +4317,9 @@ function updateScene(time, motionTime = time) {
   if (frame !== lastFrame) {
     lastFrame = frame;
     subtitleEl.textContent = getSubtitleAtTime(frameTime);
-    captionEl.textContent = sceneFiveVisible
+    captionEl.textContent = sceneSixActive
+      ? '双星系擦边 · 潮汐桥与尾 · Toomre (1972)'
+      : sceneFiveVisible
       ? '三维结构示意 · Voronoi 泡沫（空洞-壁-丝-节点）'
       : sceneFourVisible
       ? '声学印记 · d_BAO ≈ 147 Mpc · 星系间距'
@@ -3763,10 +4331,13 @@ function updateScene(time, motionTime = time) {
         ? '纵波位移  ξ(x,t) = A sin(kx - ωt)'
         : '原初光子 · 重子 · 声压峰';
     const showSceneFiveTitle = sceneFiveVisible;
+    const showSceneSixTitle = sceneSixActive;
     const showSceneFourTitle = sceneFourVisible && frameTime > SCENE_FOUR_START + 0.25;
     const showSceneThreeTitle = sceneThreeVisible && frameTime > SCENE_TWO_END + 0.25;
     const showSceneTwoTitle = frameTime >= SCENE_ONE_END + 0.3;
-    eyebrowEl.textContent = showSceneFiveTitle
+    eyebrowEl.textContent = showSceneSixTitle
+      ? 'SCENE 06 / OUR STAR RIVER'
+      : showSceneFiveTitle
       ? 'SCENE 05 / COSMIC WEB'
       : showSceneFourTitle
       ? 'SCENE 04 / DISTANCE IMPRINT'
@@ -3775,7 +4346,9 @@ function updateScene(time, motionTime = time) {
       : showSceneTwoTitle
         ? 'SCENE 02 / RECOMBINATION'
         : 'SCENE 01 / PRIMORDIAL PLASMA';
-    titleSubEl.textContent = showSceneFiveTitle
+    titleSubEl.textContent = showSceneSixTitle
+      ? '网上那点光，自成星河。'
+      : showSceneFiveTitle
       ? '回声，被宇宙织成一张网。'
       : showSceneFourTitle
       ? '回声，写进星系之间。'
@@ -3784,10 +4357,12 @@ function updateScene(time, motionTime = time) {
       : showSceneTwoTitle
         ? '光与物质，从此分离。'
         : '很久以前，声音还没有名字。';
-    timecodeEl.textContent = `${formatTime(frameTime)} / 00:36.667`;
-    cosmicClockEl.style.opacity = sceneFiveVisible ? '1' : '0';
-    gravityNoteEl.style.opacity = sceneFiveVisible ? '1' : '0';
-    if (sceneFiveVisible) {
+    timecodeEl.textContent = `${formatTime(frameTime)} / 00:42.20`;
+    cosmicClockEl.style.opacity = sceneFiveHeld ? '1' : '0';
+    gravityNoteEl.style.opacity = sceneFiveHeld ? '1' : '0';
+    if (sceneSixActive) {
+      cosmicClockValueEl.textContent = 't ≈ 138 亿年';
+    } else if (sceneFiveVisible) {
       cosmicClockValueEl.textContent = sceneFive.lineColorShift > 0.2 ? 't ≈ 118.5 亿年' : 't ≈ 2.4 亿年';
     }
   }
@@ -3878,14 +4453,15 @@ function updateScene(time, motionTime = time) {
   updateWave(frameTime);
   updateSceneThreeWave(sceneThreeRenderState);
   updateSceneFour(sceneFourField, sceneFourRenderState, frameTime, boundaryField);
-  updateSceneFive(sceneFiveWeb, sceneFiveVisible ? sceneFive : { ...sceneFive, active: false }, frameTime, sceneFourField);
+  updateSceneFive(sceneFiveWeb, sceneFiveHeld ? { ...sceneFive, active: true } : { ...sceneFive, active: false }, frameTime, sceneFourField);
+  updateSceneSix(sceneSix, sceneSixState, frameTime);
   stars.children.forEach((starLayer) => {
     starLayer.material.uniforms.uAbsorbTarget.value.copy(wave.group.position);
   });
   const cameraPush = getCameraPushAtTime(frameTime);
   if (sceneFourVisible) {
     updateSceneFourCamera(frameTime, sceneFourRenderState, boundaryField);
-  } else if (sceneFiveVisible) {
+  } else if (sceneFiveHeld) {
     camera.position.copy(computeSceneFourCameraOrbit(SCENE_FOUR_END_OFFSET_LY));
     camera.lookAt(0, 0, 0);
   } else {
@@ -3993,6 +4569,9 @@ function resize() {
   sceneFiveWeb.points.material.uniforms.uPixelRatio.value = outputScale;
   if (sceneFiveWeb.flowMaterial) {
     sceneFiveWeb.flowMaterial.uniforms.uPixelRatio.value = outputScale;
+  }
+  if (sceneSix) {
+    sceneSix.handleResize(canvas.clientHeight, outputScale);
   }
   drawDeepSky();
 }
