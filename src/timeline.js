@@ -6,7 +6,7 @@ export const SCENE_FOUR_START = SCENE_THREE_END;
 export const SCENE_FIVE_START = 24.6;
 export const SCENE_FIVE_END = 36.667;
 export const SCENE_SIX_START = SCENE_FIVE_END;
-export const SCENE_SIX_END = 42.2;
+export const SCENE_SIX_END = 73.25;
 export const SCENE_DURATION = SCENE_SIX_END;
 export const TOTAL_FRAMES = Math.round(SCENE_DURATION * FPS);
 export const SCENE_FOUR_START_OFFSET_LY = -83.2;
@@ -181,14 +181,12 @@ export function getSceneFourState(time) {
 }
 
 // Scene five beats: the frozen imprint re-disperses into a 3D Voronoi foam
-// cube, the finished foam hops upward while the cube turns a third of a turn,
-// the foam cells weave into a white neural web that cools to blue, and the
-// nodes ignite in a distributed pattern as the narration reaches the lifted
-// point of light.
+// cube, the finished foam rises buoyantly like underwater bubbles for 1.5s
+// while the cube turns a third of a turn, the foam cells weave into a white
+// neural web that cools to blue, and the nodes ignite in a distributed pattern
+// as the narration reaches the lifted point of light.
 export const SCENE_FIVE_ASSEMBLY_END = 28.8;
 export const SCENE_FIVE_HOP_START = 28.85;
-export const SCENE_FIVE_HOP_FADE_START = 31.6;
-export const SCENE_FIVE_HOP_END = 32.2;
 export const SCENE_FIVE_ROTATION_END = 31.9;
 export const SCENE_FIVE_NET_START = 28.48;
 export const SCENE_FIVE_NET_END = 31.38;
@@ -201,8 +199,10 @@ export const SCENE_FIVE_NETWORK_STYLE = 'central-spine-branches';
 export function getSceneFiveState(time) {
   const progress = Math.min(1, Math.max(0, (time - SCENE_FIVE_START) / (SCENE_FIVE_END - SCENE_FIVE_START)));
   const dispersal = smoothRange(time, SCENE_FIVE_START + 0.08, SCENE_FIVE_ASSEMBLY_END);
-  const hop = smoothRange(time, SCENE_FIVE_HOP_START, SCENE_FIVE_HOP_START + 0.5)
-    * (1 - smoothRange(time, SCENE_FIVE_HOP_FADE_START, SCENE_FIVE_HOP_END));
+  // The hop gate opens once and stays open: the shader's bubble-rise envelope
+  // lifts each bead over 1.5s (bottom-up stagger, capped by its headroom below
+  // the cube's top face) and the foam keeps its lifted pose — no fall-back.
+  const hop = smoothRange(time, SCENE_FIVE_HOP_START, SCENE_FIVE_HOP_START + 0.4);
   const distributedLight = smoothRange(time, 32.18, 35.62);
   return {
     active: time >= SCENE_FIVE_START && time <= SCENE_FIVE_END,
@@ -221,20 +221,37 @@ export function getSceneFiveState(time) {
 
 // Scene six beats: the woven tree from scene five holds its final frame while
 // star-flowers bloom along its twigs; once every flower is open, two galactic
-// cores fade into the background and graze past each other, flinging tidal
-// bridges and tails (Toomre & Toomre 1972) as the narration reaches the
-// "we are one point of light" close.
+// cores fade in while still clearly apart, close over several seconds, graze
+// past each other, and then play out the site's full aftermath — tidal
+// bridges and tails fling to maximum extension, the pair falls back for a
+// second passage and decays into one coalesced remnant. After the remnant
+// settles (60.000) the flying tail particles regroup into monarch-style
+// butterflies that ride the particles' own drift, turn as a swarm and fly to
+// the blossom tree, holding that closing tableau until 67.200 as the BGM
+// fades. Anchor times are measured from the ported Toomre integrator
+// (periapsis t=137.10, apocenter t=145.70, second passage t=154.40 on the
+// track whose story mapping spans 39.217-60.000).
 export const SCENE_SIX_BLOOM_START = SCENE_SIX_START + 0.15;
 export const SCENE_SIX_BLOOM_END = SCENE_SIX_START + 2.6;
 export const SCENE_SIX_CORES_START = SCENE_SIX_START + 2.55;
 export const SCENE_SIX_CORES_END = SCENE_SIX_START + 3.35;
-export const SCENE_SIX_GRAZE = SCENE_SIX_START + 4.4;
+export const SCENE_SIX_GRAZE = SCENE_SIX_START + 8.81;
+export const SCENE_SIX_BUTTERFLY_START = 60;
+export const SCENE_SIX_BUTTERFLY_END = 67.2;
+// The closing credit titles: two particle-text cards (the canvas particle
+// style of bootstrapmb #14276) over the dimmed butterfly tableau, split into
+// two displays inside the BGM-only tail.
+export const SCENE_TITLES_START = 67.2;
+export const SCENE_TITLES_MID = 69.9;
+export const TITLE_TEXT_ONE = '六合初鸣';
+export const TITLE_TEXT_TWO = '致角落里的每一处声音';
 
 export function getSceneSixState(time) {
   return {
     active: time >= SCENE_SIX_START && time <= SCENE_SIX_END,
     bloom: smoothRange(time, SCENE_SIX_BLOOM_START, SCENE_SIX_BLOOM_END),
     coresFade: smoothRange(time, SCENE_SIX_CORES_START, SCENE_SIX_CORES_END),
+    butterfly: smoothRange(time, SCENE_SIX_BUTTERFLY_START, SCENE_SIX_BUTTERFLY_START + 1.1),
     reveal: 1,
   };
 }

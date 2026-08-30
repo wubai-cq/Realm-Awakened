@@ -26,6 +26,16 @@ import {
   SCENE_FIVE_POINT_LIGHT_COLOR,
   SCENE_FIVE_NETWORK_STYLE,
   getSceneFiveState,
+  SCENE_SIX_START,
+  SCENE_SIX_END,
+  SCENE_SIX_GRAZE,
+  SCENE_SIX_BUTTERFLY_START,
+  SCENE_SIX_BUTTERFLY_END,
+  SCENE_TITLES_START,
+  SCENE_TITLES_MID,
+  TITLE_TEXT_ONE,
+  TITLE_TEXT_TWO,
+  getSceneSixState,
 } from '../src/timeline.js';
 
 describe('scene one timeline', () => {
@@ -34,8 +44,8 @@ describe('scene one timeline', () => {
     expect(SCENE_TWO_END).toBe(10.733);
     expect(SCENE_THREE_END).toBe(16.167);
     expect(SCENE_FOUR_START).toBe(SCENE_THREE_END);
-    expect(SCENE_DURATION).toBe(36.667);
-    expect(TOTAL_FRAMES).toBe(1100);
+    expect(SCENE_DURATION).toBe(73.25);
+    expect(TOTAL_FRAMES).toBe(2198);
     expect(getSubtitleAtTime(0.1)).toBe('');
     expect(getSubtitleAtTime(0.14)).toBe('很久以前，宇宙是一锅');
     expect(getSubtitleAtTime(2.5)).toBe('滚烫的等离子体——');
@@ -249,5 +259,77 @@ describe('scene five timeline', () => {
     expect(getSceneFiveState(32.17).distributedLight).toBe(0);
     expect(getSceneFiveState(33.9).distributedLight).toBeGreaterThan(0.3);
     expect(getSceneFiveState(33.9).lift).toBeGreaterThan(0);
+  });
+});
+
+describe('scene six timeline', () => {
+  it('keeps scene six locked to 00:36.667-01:13.250', () => {
+    expect(SCENE_SIX_START).toBe(36.667);
+    expect(SCENE_SIX_END).toBe(73.25);
+    expect(getSceneSixState(36.667).active).toBe(true);
+    expect(getSceneSixState(73.25).active).toBe(true);
+    expect(getSceneSixState(36.66).active).toBe(false);
+    expect(getSceneSixState(73.26).active).toBe(false);
+  });
+
+  it('shows two particle-text title cards in the BGM-only tail', () => {
+    expect(SCENE_TITLES_START).toBe(SCENE_SIX_BUTTERFLY_END);
+    expect(SCENE_TITLES_START).toBe(67.2);
+    expect(SCENE_TITLES_MID).toBe(69.9);
+    expect(SCENE_TITLES_MID).toBeLessThan(SCENE_SIX_END);
+    expect(TITLE_TEXT_ONE).toBe('六合初鸣');
+    expect(TITLE_TEXT_TWO).toBe('致角落里的每一处声音');
+    // each card gets well over a second of hold: cue one assembles by ~68.4
+    // and hands over at 69.9, cue two lands by ~71.1 and holds to the cut
+    expect(SCENE_TITLES_MID - SCENE_TITLES_START).toBeGreaterThan(2.5);
+    expect(SCENE_SIX_END - SCENE_TITLES_MID).toBeGreaterThan(3);
+  });
+
+  it('sends the tail swarm to the flowers only after the remnant settles', () => {
+    expect(SCENE_SIX_BUTTERFLY_START).toBe(60);
+    expect(SCENE_SIX_BUTTERFLY_END).toBe(67.2);
+    expect(getSceneSixState(59.9).butterfly).toBe(0);
+    expect(getSceneSixState(60.5).butterfly).toBeGreaterThan(0);
+    expect(getSceneSixState(60.5).butterfly).toBeLessThan(1);
+    expect(getSceneSixState(61.1).butterfly).toBe(1);
+    const settled = getSceneSixState(60);
+    expect(settled.coresFade).toBe(1);
+    expect(settled.bloom).toBe(1);
+  });
+
+  it('opens with an empty overlay so scene five owns the shared first frame', () => {
+    const firstFrame = getSceneSixState(SCENE_SIX_START);
+    expect(firstFrame.bloom).toBe(0);
+    expect(firstFrame.coresFade).toBe(0);
+  });
+
+  it('blooms the flowers after a short hold and finishes before the cores arrive', () => {
+    const hold = getSceneSixState(SCENE_SIX_START + 0.1);
+    expect(hold.bloom).toBe(0);
+
+    const blooming = getSceneSixState(SCENE_SIX_START + 1.3);
+    expect(blooming.bloom).toBeGreaterThan(0);
+    expect(blooming.bloom).toBeLessThan(1);
+
+    const fullBloom = getSceneSixState(SCENE_SIX_START + 2.6);
+    expect(fullBloom.bloom).toBe(1);
+    expect(fullBloom.coresFade).toBeLessThan(1);
+  });
+
+  it('grazes only after a long separated approach across the narration end', () => {
+    // Measured from the ported Toomre integrator: the cores fade in still 12
+    // separation units apart, close for ≈6.3s and first touch periapsis at
+    // ≈45.48s — after the 42.2s narration has already finished.
+    expect(SCENE_SIX_GRAZE).toBeCloseTo(SCENE_SIX_START + 8.81, 1);
+    expect(SCENE_SIX_GRAZE).toBeCloseTo(45.48, 1);
+    expect(SCENE_SIX_GRAZE).toBeGreaterThan(42.2);
+    expect(SCENE_SIX_GRAZE).toBeLessThan(SCENE_SIX_END);
+
+    const beforeGraze = getSceneSixState(SCENE_SIX_START + 6);
+    expect(beforeGraze.coresFade).toBe(1);
+
+    const atGraze = getSceneSixState(SCENE_SIX_GRAZE);
+    expect(atGraze.bloom).toBe(1);
+    expect(atGraze.coresFade).toBe(1);
   });
 });

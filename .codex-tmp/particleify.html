@@ -1,0 +1,612 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="theme-color" content="#000000" />
+  <meta name="color-scheme" content="dark" />
+
+  <title>Online 3D Particle Generator – Create &amp; Export | Particleify</title>
+  <link rel="shortcut icon" href="https://fsu.creght.com/site/2077964050901241856/1785218175094__particleify_favicon.png" />
+  <link rel="icon" href="https://fsu.creght.com/site/2077964050901241856/1785218175094__particleify_favicon.png" sizes="32x32" type="image/png" />
+  <meta name="description" content="Use Particleify online to turn images, SVGs, GLB models, and built-in shapes into interactive 3D particle animations. Export HTML or MP4." />
+  <meta name="application-name" content="Particleify" />
+  <meta name="keywords" content="particle generator,3D particle animation,image to particles,GLB to particles,SVG particle generator,WebGL particle animation,Three.js particles,export particle HTML,export particle MP4,interactive particles online,particleify,free particle generator,3D animation creator" />
+  <meta name="creator" content="Particleify" />
+  <meta name="publisher" content="Particleify" />
+  <meta property="og:title" content="Online 3D Particle Generator – Create &amp; Export | Particleify" />
+  <meta property="og:description" content="Create interactive particle animations from images, SVGs, and GLB models, then export HTML or MP4." />
+  <meta property="og:url" content="https://particleify.talizen.com/generator" />
+  <meta property="og:site_name" content="Particleify" />
+  <meta property="og:image" content="https://ugc.talizen.com/_assets/site/2046170308125134848/1780382416452__social.jpg" />
+  <meta property="og:image:width" content="1200" />
+  <meta property="og:image:height" content="630" />
+  <meta property="og:type" content="website" />
+  <link rel="canonical" href="https://particleify.talizen.com/generator?remix=%257B%2522particleSize%2522%253A200%252C%2522objectScale%2522%253A1%252C%2522particleCount%2522%253A90000%252C%2522effect%2522%253A%2522default%2522%252C%2522effectStrength%2522%253A0.55%252C%2522effectSpeed%2522%253A1%252C%2522hoverEffect%2522%253A%2522light-brush%2522%252C%2522hoverRadius%2522%253A0.22%252C%2522hoverStrength%2522%253A0.65%252C%2522hoverReturn%2522%253A0.35%252C%2522shape%2522%253A%2522default%2522%252C%2522interactionMode%2522%253A%2522hybrid%2522%252C%2522manualControlTarget%2522%253A%2522camera%2522%252C%2522canvasColor%2522%253A%2522%2523000000%2522%252C%2522particleColorMode%2522%253A%2522original%2522%252C%2522customParticleColor%2522%253A%2522%252300ff66%2522%252C%2522uploadedImage%2522%253A%2522https%253A%252F%252Ffsu.creght.com%252Fproject%252Fp2mq2cs9z4gi%252FmsmWaLKMvQZ__image.png%2522%252C%2522uploadedModel%2522%253Anull%252C%2522previewFilename%2522%253A%2522image.png%2522%257D&amp;source=demo-03" />
+  <link rel="alternate" hreflang="en" href="https://particleify.talizen.com/generator" />
+  <link rel="alternate" hreflang="zh-CN" href="https://particleify.talizen.com/zh-CN/generator" />
+  <link rel="alternate" hreflang="x-default" href="https://particleify.talizen.com/generator" />
+  <link rel="alternate" type="text/markdown" href="/generator.md" />
+
+
+  <link rel="stylesheet" href="/_client/tailwind_0a0f80aba3e3.css" id="__talizen_tailwind__">
+  <style>
+    [data-talizen-islands] {
+      display: contents;
+    }
+  </style>
+
+
+    <meta name="msvalidate.01" content="F62B778BED68A6A9B13EEE034BA1AD88" />
+    <meta name="google-site-verification" content="EuXjXGCKOIeQP4pvcXNdZ-4rTEvdmveWFtpowRTkfEw" />
+    <meta name="baidu-site-verification" content="codeva-NVKKIRXXI0" />
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@graph": [
+    {
+      "@type": "WebSite",
+      "@id": "https://particleify.talizen.com/#website",
+      "url": "https://particleify.talizen.com/",
+      "name": "Particleify",
+      "description": "A browser-based 3D particle generator for images, SVGs, and GLB models."
+    },
+    {
+      "@type": "Organization",
+      "@id": "https://particleify.talizen.com/#organization",
+      "name": "Particleify",
+      "url": "https://particleify.talizen.com/"
+    }
+  ]
+}
+</script>
+<style>
+  body {
+    margin: 0;
+    overflow-x: hidden;
+    background-color: #000;
+  }
+
+  ::-webkit-scrollbar {
+    display: none;
+  }
+
+  ::selection {
+    background-color: #22c55e;
+    color: #000;
+  }
+
+  input[type="range"]::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    width: 12px;
+    height: 12px;
+    background: #22c55e;
+    border-radius: 50%;
+    cursor: pointer;
+  }
+
+  input[type="range"]::-moz-range-thumb {
+    width: 12px;
+    height: 12px;
+    background: #22c55e;
+    border-radius: 50%;
+    cursor: pointer;
+    border: none;
+  }
+</style>
+<script type="text/javascript">
+    (function(c,l,a,r,i,t,y){
+        c[a]=c[a]||function(){(c[a].q=c[a].q||[]).push(arguments)};
+        t=l.createElement(r);t.async=1;t.src="https://www.clarity.ms/tag/"+i;
+        y=l.getElementsByTagName(r)[0];y.parentNode.insertBefore(t,y);
+    })(window, document, "clarity", "script", "vwy2zlf2tt");
+</script>
+    
+  <script>(function(){var r=document.referrer;try{if(r&&new URL(r).host===location.host)r=''}catch(e){}fetch('/api/site_visit?ref='+encodeURIComponent(r))})()</script>
+  <script>(function(){function send(n,p){var b=JSON.stringify({name:n,url:location.href,props:p||{}});try{if(navigator.sendBeacon&&navigator.sendBeacon('/api/site_event',new Blob([b],{type:'application/json'})))return}catch(e){}try{fetch('/api/site_event',{method:'POST',headers:{'Content-Type':'application/json'},keepalive:true,body:b})}catch(e){}}document.addEventListener('click',function(e){var t=e.target;var el=t&&t.closest?t.closest('[data-track]'):null;if(!el)return;var n=el.getAttribute('data-track');if(!n)return;var pr={};var a=el.attributes;for(var i=0;i<a.length;i++){if(a[i].name.indexOf('data-track-')===0){pr[a[i].name.slice(11)]=a[i].value}}send(n,pr)},true)})()</script>
+</head>
+<body>
+  <div id="root"><div class="flex h-screen flex-col overflow-hidden bg-black font-mono text-white"><script type="application/ld+json">{"@context":"https://schema.org","@type":"WebApplication","name":"Particleify","url":"https://particleify.talizen.com/generator","description":"An online 3D particle generator that turns images, SVGs, GLB models, and built-in shapes into interactive HTML and MP4 animations.","applicationCategory":"DesignApplication","operatingSystem":"Any","browserRequirements":"Requires a modern browser with WebGL support."}</script><header class="relative z-[90] flex h-16 shrink-0 items-center justify-between gap-3 border-b border-white/10 bg-black/85 px-4 text-white backdrop-blur-xl sm:px-5 md:h-20 md:px-8"><nav class="flex min-w-0 items-center gap-2 sm:gap-3" aria-label="Generator navigation"><a href="/" data-track="click_back_home" data-track-position="generator_header" class="inline-flex h-10 shrink-0 items-center gap-2 border border-white/20 bg-zinc-950/70 px-3 text-[9px] font-bold uppercase tracking-[0.16em] text-zinc-400 transition-colors hover:border-green-500 hover:text-green-400 sm:px-4 md:h-12" aria-label="Back to home"><span aria-hidden="true">←</span><span class="hidden sm:inline">Home</span></a><a href="/" class="flex min-w-0 items-center text-xl font-bold tracking-tighter text-white transition-opacity hover:opacity-80 sm:text-2xl" aria-label="Particleify home"><span class="hidden min-[420px]:inline">Particleify</span></a></nav><div class="flex shrink-0 items-center gap-2"><button type="button" data-track="click_config" class="group flex h-10 items-center justify-center gap-2 rounded-full border-2 border-green-500 bg-zinc-950/85 px-3 text-green-500 shadow-[0_0_24px_rgba(34,197,94,0.22)] transition-all hover:scale-105 hover:bg-green-500 hover:text-black active:scale-95 sm:px-4 md:h-12 lg:hidden " aria-label="Open settings panel"><svg class="h-4 w-4 transition-transform duration-300 group-hover:translate-x-0.5 sm:h-5 sm:w-5" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="4" y1="21" x2="4" y2="14"></line><line x1="4" y1="10" x2="4" y2="3"></line><line x1="12" y1="21" x2="12" y2="12"></line><line x1="12" y1="8" x2="12" y2="3"></line><line x1="20" y1="21" x2="20" y2="16"></line><line x1="20" y1="12" x2="20" y2="3"></line><line x1="1" y1="14" x2="7" y2="14"></line><line x1="9" y1="8" x2="15" y2="8"></line><line x1="17" y1="16" x2="23" y2="16"></line></svg><span class="hidden text-[10px] font-bold uppercase tracking-widest sm:inline sm:text-xs">Settings</span></button><div class="h-11 w-24 animate-pulse rounded-full border sm:h-12 sm:w-28 border-zinc-700 bg-zinc-950/85 text-white hover:border-green-500 hover:text-green-500" aria-label="Loading account"></div></div></header><section id="generator" class="relative min-h-0 flex-1 overflow-hidden bg-black lg:mr-[380px]"><div class="absolute inset-0 w-full h-full" style="background:#000000"></div><button type="button" data-track="click_canvas_fullscreen" class="absolute right-4 top-4 z-20 flex h-11 w-11 items-center justify-center rounded-full border border-white/15 bg-black/55 text-white backdrop-blur-md transition-all hover:border-green-500 hover:text-green-400 active:scale-95 md:right-6 md:top-6" aria-label="Show canvas fullscreen" title="Fullscreen canvas"><svg class="h-5 w-5" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="15 3 21 3 21 9"></polyline><polyline points="9 21 3 21 3 15"></polyline><line x1="21" y1="3" x2="14" y2="10"></line><line x1="3" y1="21" x2="10" y2="14"></line></svg></button><main class="absolute pointer-events-none inset-x-0 bottom-0 z-10 p-4 md:p-6"><div class="hidden"></div><div class="sr-only"><h1 class="text-4xl md:text-7xl font-bold leading-[1.1] tracking-tight">Online 3D Particle Generator</h1><p class="max-w-md text-zinc-400 text-xs md:text-sm leading-relaxed">Turn images, SVGs, and GLB models into interactive 3D particle animations. Customize particle effects online and export ready-to-use HTML or MP4 in minutes.</p></div><div class="flex flex-col gap-3 pointer-events-auto"><div class="flex flex-wrap gap-3 md:gap-4"><button type="button" disabled="" data-track="click_download_html" class="flex-1 sm:flex-none px-5 py-3 font-bold transition-all duration-300 flex items-center justify-center gap-2 text-xs tracking-wide disabled:cursor-wait disabled:opacity-60 bg-green-500 text-black hover:bg-white"><svg class="w-4 h-4" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>EXPORT HTML · PRO</button><button type="button" disabled="" data-track="click_download_mp4" class="flex-1 sm:flex-none px-5 py-3 font-bold transition-all duration-300 flex items-center justify-center gap-2 text-xs tracking-wide disabled:cursor-wait disabled:opacity-60 border-2 border-green-500 text-green-500 hover:bg-green-500 hover:text-black"><svg class="w-4 h-4" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="12" r="6"></circle></svg>Export MP4</button></div><p class="hidden text-[9px] text-zinc-500 tracking-[0.16em] uppercase select-none lg:block">Configure the scene in the studio controls on the right.</p></div><footer class="hidden"><a href="/#faq"><button type="button" class="px-4 md:px-5 py-2.5 md:py-3 border hover:border-green-500 hover:text-green-500 transition-all flex items-center gap-2 text-[10px] md:text-xs border-zinc-800"><svg class="w-4 h-4" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path></svg>FAQ</button></a><a target="_blank" href="https://www.xiaohongshu.com/user/profile/5a38606811be10715f4895b6?xsec_token=YBHSkXq7_1OD5VhJ40nGL5KUx0jBCDUkTQL3WiEzqaoLw%3D&amp;xsec_source=app_share&amp;xhsshare=&amp;shareRedId=N0c1ODk1OkE3OEdHOjg3NztJPT89Okg_&amp;apptime=1773383070&amp;share_id=e8e6d8fa9a3148a7b68d465ea1365035&amp;share_channel=wechat"><button type="button" class="px-4 md:px-5 py-2.5 md:py-3 border hover:border-red-500 hover:text-red-500 transition-all flex items-center gap-2 text-[10px] md:text-xs border-zinc-800"><svg class="w-4 h-4" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"></path><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"></path><line x1="12" y1="6" x2="12" y2="12"></line><line x1="9" y1="9" x2="15" y2="9"></line></svg>小红书</button></a><a href="https://x.com/creght2023" target="_blank"><button type="button" class="px-4 md:px-5 py-2.5 md:py-3 border hover:border-green-500 hover:text-green-500 transition-all flex items-center gap-2 text-[10px] md:text-xs border-zinc-800"><svg class="w-4 h-4" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 4l11.733 16h4.267l-11.733 -16z"></path><path d="M4 20l6.768 -6.768m2.46 -2.46l6.772 -6.772"></path></svg>TWITTER</button></a></footer></main></section><section id="features" class="hidden"><div class="mx-auto w-full max-w-5xl"><div class="mb-12 border-b border-zinc-800 pb-5"><h2 class="text-2xl font-bold tracking-tight md:text-4xl">Key Features</h2><p class="mt-2 text-xs uppercase tracking-widest text-green-500">Capabilities</p></div><div class="grid grid-cols-1 md:grid-cols-3 gap-8"><div class="border border-zinc-800 p-6 hover:border-green-500/50 transition-colors"><div class="text-green-500 text-lg font-bold mb-3">01 / IMAGE TO 3D</div><p class="text-zinc-400 text-sm leading-relaxed">Upload any image or SVG, and watch it instantly transform into a cloud of thousands of interactive 3D particles.</p></div><div class="border border-zinc-800 p-6 hover:border-green-500/50 transition-colors"><div class="text-green-500 text-lg font-bold mb-3">02 / 3D MODEL SUPPORT</div><p class="text-zinc-400 text-sm leading-relaxed">Import GLB/gITF models to generate particle-based representations of 3D objects with custom depth and density.</p></div><div class="border border-zinc-800 p-6 hover:border-green-500/50 transition-colors"><div class="text-green-500 text-lg font-bold mb-3">03 / REAL-TIME EFFECTS</div><p class="text-zinc-400 text-sm leading-relaxed">Apply dynamic motion effects like Explode, Vortex, Pulse, and Wave. Customize particle count, size, and colors in real time.</p></div><div class="border border-zinc-800 p-6 hover:border-green-500/50 transition-colors"><div class="text-green-500 text-lg font-bold mb-3">04 / INTERACTIVE CONTROL</div><p class="text-zinc-400 text-sm leading-relaxed">Switch between automatic rotation and manual control. Rotate the camera or the particle object directly with your mouse.</p></div><div class="border border-zinc-800 p-6 hover:border-green-500/50 transition-colors"><div class="text-green-500 text-lg font-bold mb-3">05 / HTML EXPORT</div><p class="text-zinc-400 text-sm leading-relaxed">Export your customized particle animation as a single, lightweight, standalone HTML file with inline WebGL code.</p></div><div class="border border-zinc-800 p-6 hover:border-green-500/50 transition-colors"><div class="text-green-500 text-lg font-bold mb-3">06 / MP4 VIDEO EXPORT</div><p class="text-zinc-400 text-sm leading-relaxed">Record your particle animations directly in the browser and export them as high-quality MP4 videos up to 60 seconds.</p></div></div></div></section><section id="faq" class="hidden"><div class="mx-auto flex min-h-[calc(100vh-12rem)] w-full max-w-5xl flex-col justify-center"><div class="mb-8 flex items-end justify-between gap-6 border-b border-zinc-800 pb-5"><div><h2 class="text-2xl font-bold tracking-tight md:text-4xl">Frequently Asked Questions</h2><p class="mt-2 text-xs uppercase tracking-widest text-green-500">FAQ</p></div><p class="hidden max-w-xs text-right text-xs leading-relaxed text-zinc-500 md:block">Answers about Particleify exports, supported formats, and browser-based particle generation.</p></div><div class="divide-y divide-zinc-800"><details class="group py-5"><summary class="flex cursor-pointer list-none items-center justify-between gap-6 text-left text-base font-bold leading-snug transition-colors hover:text-green-500 md:text-xl"><span>What is a particle generator?</span><span class="shrink-0 text-2xl leading-none text-green-500 transition-transform group-open:rotate-45" aria-hidden="true">+</span></summary><p class="mt-3 max-w-2xl text-sm leading-relaxed text-zinc-400 md:text-base">A particle generator turns an image, SVG, or 3D model into thousands of animated points that move in 3D space.</p></details><details class="group py-5"><summary class="flex cursor-pointer list-none items-center justify-between gap-6 text-left text-base font-bold leading-snug transition-colors hover:text-green-500 md:text-xl"><span>Can I turn an image into a 3D particle animation?</span><span class="shrink-0 text-2xl leading-none text-green-500 transition-transform group-open:rotate-45" aria-hidden="true">+</span></summary><p class="mt-3 max-w-2xl text-sm leading-relaxed text-zinc-400 md:text-base">Yes. Upload an image, tune the particle count, size, color, shape, and motion style, then preview the animation in real time.</p></details><details class="group py-5"><summary class="flex cursor-pointer list-none items-center justify-between gap-6 text-left text-base font-bold leading-snug transition-colors hover:text-green-500 md:text-xl"><span>Can Particleify export HTML?</span><span class="shrink-0 text-2xl leading-none text-green-500 transition-transform group-open:rotate-45" aria-hidden="true">+</span></summary><p class="mt-3 max-w-2xl text-sm leading-relaxed text-zinc-400 md:text-base">Yes. Particleify can export a ready-to-use HTML file that includes the generated interactive particle animation.</p></details><details class="group py-5"><summary class="flex cursor-pointer list-none items-center justify-between gap-6 text-left text-base font-bold leading-snug transition-colors hover:text-green-500 md:text-xl"><span>Can I export particle animations as MP4?</span><span class="shrink-0 text-2xl leading-none text-green-500 transition-transform group-open:rotate-45" aria-hidden="true">+</span></summary><p class="mt-3 max-w-2xl text-sm leading-relaxed text-zinc-400 md:text-base">Yes. Use Export MP4 to record the current particle animation and download it as a video.</p></details><details class="group py-5"><summary class="flex cursor-pointer list-none items-center justify-between gap-6 text-left text-base font-bold leading-snug transition-colors hover:text-green-500 md:text-xl"><span>Does Particleify support GLB models?</span><span class="shrink-0 text-2xl leading-none text-green-500 transition-transform group-open:rotate-45" aria-hidden="true">+</span></summary><p class="mt-3 max-w-2xl text-sm leading-relaxed text-zinc-400 md:text-base">Yes. Particleify supports GLB uploads, so you can turn 3D models into particle-based visuals.</p></details><details class="group py-5"><summary class="flex cursor-pointer list-none items-center justify-between gap-6 text-left text-base font-bold leading-snug transition-colors hover:text-green-500 md:text-xl"><span>Is Particleify free to use?</span><span class="shrink-0 text-2xl leading-none text-green-500 transition-transform group-open:rotate-45" aria-hidden="true">+</span></summary><p class="mt-3 max-w-2xl text-sm leading-relaxed text-zinc-400 md:text-base">Creating, customizing, and exporting MP4 videos is free. The current lifetime HTML export price is shown securely at checkout.</p></details></div></div></section><a href="https://www.creght.com" target="_blank" class="hidden fixed right-6 bottom-6 z-50 px-4 md:px-6 select-none cursor-pointer py-1.5 md:py-2 border transition-all text-[10px] md:text-xs tracking-widest border-zinc-800 hover:border-green-500 hover:text-green-500">Made In Creght</a><div class="fixed inset-0 z-[70] bg-black/30 lg:hidden opacity-0 pointer-events-none" aria-hidden="true"></div><div class="fixed right-0 top-0 h-full w-full sm:w-80 lg:w-[380px] lg:translate-x-0 lg:opacity-100 z-[80] bg-zinc-950/95 backdrop-blur-md border-l border-zinc-800 flex flex-col transition-transform duration-300 ease-out translate-x-full opacity-0"><div class="flex items-center justify-between p-6 border-b border-zinc-800"><div class="flex items-center gap-3"><svg class="w-5 h-5 text-green-500" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path></svg><span class="text-white font-bold tracking-wide">Configuration</span></div><button type="button" class="w-8 h-8 items-center justify-center text-zinc-500 hover:text-white hover:bg-zinc-800 rounded transition-all flex lg:hidden"><svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg></button></div><div class="flex-1 overflow-y-auto p-5 sm:p-6 flex flex-col gap-5 sm:gap-6"><div class="flex flex-col gap-4"><div class="flex items-center justify-between gap-3"><div class="flex items-center gap-3 text-xs tracking-widest text-zinc-400 uppercase"><svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"></rect><circle cx="12" cy="12" r="3"></circle><polyline points="21 15 16 10 5 21"></polyline></svg><span>Source Image</span></div><button type="button" class="rounded border border-zinc-700 bg-zinc-900 px-3 py-1.5 text-[9px] font-bold uppercase tracking-[0.16em] text-zinc-300 transition-colors hover:border-green-500 hover:text-green-400">Built-in Assets</button></div><input type="file" accept="image/*,image/svg+xml,.glb" class="hidden"/><div role="button" tabindex="0" aria-label="Upload or paste a source image, SVG, or GLB model" class="cursor-pointer rounded-lg border-2 border-dashed p-4 text-center transition-all border-zinc-700 hover:border-green-500 hover:bg-zinc-900/50"><div class="flex flex-col items-center gap-2"><svg class="h-8 w-8 text-zinc-500" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="17 8 12 3 7 8"></polyline><line x1="12" y1="3" x2="12" y2="15"></line></svg><span class="text-center text-xs text-zinc-500">Click to upload SVG / IMG / GLB<br/><span class="text-[10px] opacity-60">or paste an image with ⌘/Ctrl + V</span><br/><span class="text-[10px] opacity-60">(GLB model color preserved)</span></span></div></div><div class="flex flex-col gap-3 mt-2"><div class="flex items-center gap-3 text-xs tracking-widest text-zinc-400 uppercase"><svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"></polygon></svg><span>Preset Shapes</span></div><div class="relative"><select class="w-full px-4 py-3 bg-zinc-900/80 border border-zinc-700 rounded-lg text-sm text-white appearance-none cursor-pointer hover:border-green-500 focus:border-green-500 focus:outline-none focus:ring-1 focus:ring-green-500/50 transition-all"><option value="default" selected="">✨ Default</option><option value="heart">❤️ Heart</option><option value="butterfly">🦋 Butterfly</option><option value="rose">🌹 Rose</option><option value="cube">🎲 Cube</option><option value="pyramid">🔺 Pyramid</option><option value="spiral">🌀 Spiral</option><option value="star">⭐ Star</option><option value="sphere">🔵 Sphere</option><option value="dna">🧬 DNA</option><option value="infinity">♾️ Infinity</option></select><div class="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-zinc-500"><svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"></polyline></svg></div></div></div></div><div class="h-px bg-zinc-800"></div><div class="flex flex-col gap-4"><div class="flex items-center gap-3 text-xs tracking-widest text-zinc-400 uppercase"><svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="13.5" cy="6.5" r=".5" fill="currentColor"></circle><circle cx="17.5" cy="10.5" r=".5" fill="currentColor"></circle><circle cx="8.5" cy="7.5" r=".5" fill="currentColor"></circle><circle cx="6.5" cy="12.5" r=".5" fill="currentColor"></circle><path d="M12 2C6.5 2 2 5.8 2 10.5S6 19 11 19h1.5a2.5 2.5 0 0 0 0-5H12a2 2 0 0 1 0-4h1.5A2.5 2.5 0 0 0 16 7.5C16 4.5 14.5 2 12 2z"></path></svg><span>Colors</span></div><label class="flex items-center justify-between gap-4 text-[10px] tracking-widest text-zinc-500 uppercase"><span>Canvas Color</span><div class="flex items-center gap-2"><input type="color" class="h-9 w-12 cursor-pointer rounded border border-zinc-700 bg-zinc-900 p-1" aria-label="Canvas color" value="#000000"/><span class="w-16 text-right text-zinc-300">#000000</span></div></label><div class="grid grid-cols-2 gap-2"><button type="button" class="px-3 py-2.5 text-[10px] tracking-wider border transition-all bg-zinc-900/50 rounded hover:border-green-500 hover:text-green-500 border-green-500 text-green-500 bg-green-500/10 shadow-[0_0_12px_rgba(34,197,94,0.3)]">ORIGINAL</button><button type="button" class="px-3 py-2.5 text-[10px] tracking-wider border transition-all bg-zinc-900/50 rounded hover:border-green-500 hover:text-green-500 border-zinc-700">CUSTOM</button></div></div><div class="h-px bg-zinc-800"></div><div class="flex flex-col gap-4"><div class="flex items-center gap-3 text-xs tracking-widest text-zinc-400 uppercase"><svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="4" y1="21" x2="4" y2="14"></line><line x1="4" y1="10" x2="4" y2="3"></line><line x1="12" y1="21" x2="12" y2="12"></line><line x1="12" y1="8" x2="12" y2="3"></line><line x1="20" y1="21" x2="20" y2="16"></line><line x1="20" y1="12" x2="20" y2="3"></line><line x1="1" y1="14" x2="7" y2="14"></line><line x1="9" y1="8" x2="15" y2="8"></line><line x1="17" y1="16" x2="23" y2="16"></line></svg><span>Particle Size</span></div><div class="flex items-center gap-4"><input type="range" min="10" max="500" step="1" class="flex-1 h-2 bg-zinc-800 rounded-lg appearance-none cursor-pointer accent-green-500" value="200"/><span class="text-green-500 font-bold text-sm w-10 text-right">200</span></div></div><div class="flex flex-col gap-4"><div class="flex items-center gap-3 text-xs tracking-widest text-zinc-400 uppercase"><svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="15 3 21 3 21 9"></polyline><polyline points="9 21 3 21 3 15"></polyline><line x1="21" y1="3" x2="14" y2="10"></line><line x1="3" y1="21" x2="10" y2="14"></line></svg><span>Object Scale</span></div><div class="flex items-center gap-4"><input type="range" min="0.25" max="2" step="0.05" class="flex-1 h-2 bg-zinc-800 rounded-lg appearance-none cursor-pointer accent-green-500" aria-label="Object scale" value="1"/><span class="text-green-500 font-bold text-sm w-12 text-right">100<!-- -->%</span></div></div><div class="flex flex-col gap-4"><div class="flex items-center gap-3 text-xs tracking-widest text-zinc-400 uppercase"><svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="1"></circle><circle cx="19" cy="12" r="1"></circle><circle cx="5" cy="12" r="1"></circle><circle cx="12" cy="5" r="1"></circle><circle cx="12" cy="19" r="1"></circle></svg><span>Particle Count</span></div><div class="flex items-center gap-4"><input type="range" min="10000" max="150000" step="10000" class="flex-1 h-2 bg-zinc-800 rounded-lg appearance-none cursor-pointer accent-green-500" value="90000"/><span class="text-green-500 font-bold text-sm w-16 text-right">90<!-- -->K</span></div><p class="text-[9px] text-zinc-600">Higher counts may affect performance</p></div><div class="h-px bg-zinc-800"></div><div class="flex flex-col gap-4"><div class="flex items-center gap-3 text-xs tracking-widest text-zinc-400 uppercase"><svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2L2 7l10 5 10-5-10-5z"></path><polyline points="2 17 12 22 22 17"></polyline><polyline points="2 12 12 17 22 12"></polyline></svg><span>Interaction Mode</span></div><div class="grid grid-cols-3 gap-2"><button type="button" class="min-h-[52px] px-2 py-3 text-center text-[10px] leading-tight tracking-wider border transition-all bg-zinc-900/50 rounded hover:border-green-500 hover:text-green-500 border-green-500 text-green-500 bg-green-500/10 shadow-[0_0_12px_rgba(34,197,94,0.3)]">🔄 AUTO ROTATE</button><button type="button" class="min-h-[52px] px-2 py-3 text-center text-[10px] leading-tight tracking-wider border transition-all bg-zinc-900/50 rounded hover:border-green-500 hover:text-green-500 border-zinc-700">⚡ AUTO+MANUAL</button><button type="button" class="min-h-[52px] px-2 py-3 text-center text-[10px] leading-tight tracking-wider border transition-all bg-zinc-900/50 rounded hover:border-green-500 hover:text-green-500 border-zinc-700">🖱️ MANUAL</button></div><p class="text-[9px] text-zinc-600">Particles rotate automatically</p></div><div class="h-px bg-zinc-800"></div><div class="flex flex-col gap-4"><div class="flex items-center gap-3 text-xs tracking-widest text-zinc-400 uppercase"><svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 3l1.912 5.813a2 2 0 001.275 1.275L21 12l-5.813 1.912a2 2 0 00-1.275 1.275L12 21l-1.912-5.813a2 2 0 00-1.275-1.275L3 12l5.813-1.912a2 2 0 001.275-1.275L12 3z"></path></svg><span>Particle Effects</span></div><div class="grid grid-cols-2 gap-2"><button type="button" class="flex min-h-12 flex-col items-start justify-center gap-1 rounded border bg-zinc-900/50 px-3 py-2.5 text-left transition-all hover:border-green-500 hover:text-green-500 border-green-500 text-green-500 bg-green-500/10 shadow-[0_0_12px_rgba(34,197,94,0.3)]"><span class="text-[10px] tracking-wider">DEFAULT</span><span class="text-[7px] font-bold tracking-[0.16em] text-emerald-500/70">STABLE</span></button><button type="button" class="flex min-h-12 flex-col items-start justify-center gap-1 rounded border bg-zinc-900/50 px-3 py-2.5 text-left transition-all hover:border-green-500 hover:text-green-500 border-zinc-700"><span class="text-[10px] tracking-wider">PULSE</span><span class="text-[7px] font-bold tracking-[0.16em] text-emerald-500/70">STABLE</span></button><button type="button" class="flex min-h-12 flex-col items-start justify-center gap-1 rounded border bg-zinc-900/50 px-3 py-2.5 text-left transition-all hover:border-green-500 hover:text-green-500 border-zinc-700"><span class="text-[10px] tracking-wider">RIPPLE</span><span class="text-[7px] font-bold tracking-[0.16em] text-emerald-500/70">STABLE</span></button><button type="button" class="flex min-h-12 flex-col items-start justify-center gap-1 rounded border bg-zinc-900/50 px-3 py-2.5 text-left transition-all hover:border-green-500 hover:text-green-500 border-zinc-700"><span class="text-[10px] tracking-wider">SURFACE FLOW</span><span class="text-[7px] font-bold tracking-[0.16em] text-emerald-500/70">STABLE</span></button><button type="button" class="flex min-h-12 flex-col items-start justify-center gap-1 rounded border bg-zinc-900/50 px-3 py-2.5 text-left transition-all hover:border-green-500 hover:text-green-500 border-zinc-700"><span class="text-[10px] tracking-wider">SCAN</span><span class="text-[7px] font-bold tracking-[0.16em] text-emerald-500/70">STABLE</span></button><button type="button" class="flex min-h-12 flex-col items-start justify-center gap-1 rounded border bg-zinc-900/50 px-3 py-2.5 text-left transition-all hover:border-green-500 hover:text-green-500 border-zinc-700"><span class="text-[10px] tracking-wider">DISSOLVE</span><span class="text-[7px] font-bold tracking-[0.16em] text-emerald-500/70">STABLE</span></button><button type="button" class="flex min-h-12 flex-col items-start justify-center gap-1 rounded border bg-zinc-900/50 px-3 py-2.5 text-left transition-all hover:border-green-500 hover:text-green-500 border-zinc-700"><span class="text-[10px] tracking-wider">WAVE</span><span class="text-[7px] font-bold tracking-[0.16em] text-amber-400/70">TRANSFORM</span></button><button type="button" class="flex min-h-12 flex-col items-start justify-center gap-1 rounded border bg-zinc-900/50 px-3 py-2.5 text-left transition-all hover:border-green-500 hover:text-green-500 border-zinc-700"><span class="text-[10px] tracking-wider">TWIST</span><span class="text-[7px] font-bold tracking-[0.16em] text-amber-400/70">TRANSFORM</span></button><button type="button" class="flex min-h-12 flex-col items-start justify-center gap-1 rounded border bg-zinc-900/50 px-3 py-2.5 text-left transition-all hover:border-green-500 hover:text-green-500 border-zinc-700"><span class="text-[10px] tracking-wider">SCATTER</span><span class="text-[7px] font-bold tracking-[0.16em] text-amber-400/70">TRANSFORM</span></button><button type="button" class="flex min-h-12 flex-col items-start justify-center gap-1 rounded border bg-zinc-900/50 px-3 py-2.5 text-left transition-all hover:border-green-500 hover:text-green-500 border-zinc-700"><span class="text-[10px] tracking-wider">SCATTER × WAVE</span><span class="text-[7px] font-bold tracking-[0.16em] text-amber-400/70">TRANSFORM</span></button><button type="button" class="flex min-h-12 flex-col items-start justify-center gap-1 rounded border bg-zinc-900/50 px-3 py-2.5 text-left transition-all hover:border-green-500 hover:text-green-500 border-zinc-700"><span class="text-[10px] tracking-wider">VORTEX</span><span class="text-[7px] font-bold tracking-[0.16em] text-amber-400/70">TRANSFORM</span></button><button type="button" class="flex min-h-12 flex-col items-start justify-center gap-1 rounded border bg-zinc-900/50 px-3 py-2.5 text-left transition-all hover:border-green-500 hover:text-green-500 border-zinc-700"><span class="text-[10px] tracking-wider">EXPLODE</span><span class="text-[7px] font-bold tracking-[0.16em] text-fuchsia-400/70">TRIGGER</span></button></div><p class="text-[9px] leading-4 text-zinc-600">Keeps the source form clear with only subtle ambient movement.</p><div class="mt-1 flex items-center gap-3 text-[9px] font-bold tracking-[0.18em] text-green-500 uppercase"><span>Pointer Response</span><span class="h-px flex-1 bg-green-500/20"></span></div><div class="grid grid-cols-2 gap-2"><button type="button" class="rounded border bg-zinc-900/50 px-3 py-2.5 text-[9px] tracking-wider transition-all hover:border-green-500 hover:text-green-500  border-zinc-700">OFF</button><button type="button" class="rounded border bg-zinc-900/50 px-3 py-2.5 text-[9px] tracking-wider transition-all hover:border-green-500 hover:text-green-500  border-green-500 text-green-500 bg-green-500/10 shadow-[0_0_12px_rgba(34,197,94,0.3)]">LIGHT BRUSH</button><button type="button" class="rounded border bg-zinc-900/50 px-3 py-2.5 text-[9px] tracking-wider transition-all hover:border-green-500 hover:text-green-500  border-zinc-700">REPEL</button><button type="button" class="rounded border bg-zinc-900/50 px-3 py-2.5 text-[9px] tracking-wider transition-all hover:border-green-500 hover:text-green-500  border-zinc-700">ATTRACT</button><button type="button" class="rounded border bg-zinc-900/50 px-3 py-2.5 text-[9px] tracking-wider transition-all hover:border-green-500 hover:text-green-500 col-span-2 border-zinc-700">RIPPLE</button></div><p class="text-[9px] leading-4 text-zinc-600">Brightens and gently lifts particles beneath the pointer.</p><div class="flex flex-col gap-4 rounded border border-green-500/15 bg-green-500/[0.03] p-4"><label class="flex flex-col gap-2"><span class="flex justify-between text-[9px] tracking-widest text-zinc-500 uppercase"><span>Radius</span><span class="text-green-500">22<!-- -->%</span></span><input type="range" min="0.08" max="0.5" step="0.01" class="h-2 w-full cursor-pointer appearance-none rounded-lg bg-zinc-800 accent-green-500" aria-label="Pointer response radius" value="0.22"/></label><label class="flex flex-col gap-2"><span class="flex justify-between text-[9px] tracking-widest text-zinc-500 uppercase"><span>Strength</span><span class="text-green-500">65<!-- -->%</span></span><input type="range" min="0.1" max="1" step="0.05" class="h-2 w-full cursor-pointer appearance-none rounded-lg bg-zinc-800 accent-green-500" aria-label="Pointer response strength" value="0.65"/></label><label class="flex flex-col gap-2"><span class="flex justify-between text-[9px] tracking-widest text-zinc-500 uppercase"><span>Return</span><span class="text-green-500">350<!-- -->ms</span></span><input type="range" min="0.12" max="0.8" step="0.01" class="h-2 w-full cursor-pointer appearance-none rounded-lg bg-zinc-800 accent-green-500" aria-label="Pointer response return time" value="0.35"/></label></div></div><div class="h-px bg-zinc-800"></div><div class="flex flex-col gap-3 text-zinc-600 text-[10px] tracking-widest uppercase"><div class="flex justify-between"><span>Particles</span><span class="text-zinc-400">90,000</span></div><div class="flex justify-between"><span>Scale</span><span class="text-zinc-400">100<!-- -->%</span></div><div class="flex justify-between"><span>Render</span><span class="text-green-500">Active</span></div></div></div></div></div></div>
+  <style>
+    #__talizen_widget {
+      position: fixed;
+      right: 12px;
+      bottom: 12px;
+      z-index: 99999!important;
+      display: none;
+      align-items: flex-end;
+      gap: 10px;
+      font-family: Inter, "SF Pro Display", "Segoe UI", Arial, sans-serif;
+      pointer-events: none;
+    }
+
+    #__talizen_widget[data-visible="true"] {
+      display: flex;
+    }
+
+    #__talizen_widget_row {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      pointer-events: none;
+    }
+
+    #__talizen_made_in_wrap {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 6px 6px 6px 12px;
+      border-radius: 999px;
+      border: 1px solid rgba(229, 231, 235, 0.5);
+      background: rgba(255, 255, 255, 0.8);
+      color: #111827;
+      box-shadow: 0 1px 2px rgba(15, 23, 42, 0.08);
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
+      transition: box-shadow 160ms ease, color 160ms ease, transform 160ms ease;
+      pointer-events: auto;
+    }
+
+    #__talizen_made_in {
+      display: inline-flex;
+      align-items: center;
+      gap: 2px;
+      color: inherit;
+      text-decoration: none;
+      cursor: pointer;
+    }
+
+    #__talizen_widget[data-has-errors="true"] #__talizen_made_in_wrap {
+      border-color: rgba(239, 68, 68, 0.8);
+      box-shadow: 0 0 0 3px rgba(239, 68, 68, 0.16), 0 10px 30px rgba(127, 29, 29, 0.18);
+    }
+
+    #__talizen_made_in_wrap:hover {
+      box-shadow: 0 8px 24px rgba(15, 23, 42, 0.12);
+      transform: translateY(-1px);
+    }
+
+    #__talizen_widget[data-has-errors="true"] #__talizen_made_in_wrap:hover {
+      box-shadow: 0 0 0 3px rgba(239, 68, 68, 0.2), 0 12px 34px rgba(127, 29, 29, 0.22);
+    }
+
+    #__talizen_made_in_close {
+      width: 24px;
+      height: 24px;
+      padding: 0;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      border-radius: 999px;
+      border: 0;
+      background: transparent;
+      color: #6b7280;
+      font: 700 16px/24px Inter, "SF Pro Display", "Segoe UI", Arial, sans-serif;
+      cursor: pointer;
+      transition: background 160ms ease, color 160ms ease, transform 160ms ease, opacity 160ms ease;
+    }
+
+    #__talizen_made_in_close:hover {
+      background: rgba(17, 24, 39, 0.9);
+      color: #fff;
+    }
+
+    #__talizen_made_in_label {
+      font-size: 12px;
+      font-weight: 500;
+      color: #6b7280;
+      transition: color 160ms ease;
+	  margin-right: 2px;
+    }
+
+    #__talizen_made_in:hover #__talizen_made_in_label {
+      color: #111827;
+    }
+
+    #__talizen_made_in_wordmark {
+      font-size: 12px;
+      font-weight: 700;
+      letter-spacing: 0.04em;
+      color: inherit;
+    }
+
+    #__talizen_made_in_logo {
+      width: 24px;
+      height: 24px;
+      flex: none;
+      filter: drop-shadow(0 1px 1px rgba(15, 23, 42, 0.08));
+    }
+
+    #__talizen_render_error_bubble {
+      display: none;
+      align-items: center;
+      gap: 8px;
+      min-height: 40px;
+      max-width: min(320px, calc(100vw - 128px));
+      padding: 8px 12px;
+      border-radius: 10px;
+      border: 1px solid rgba(185, 28, 28, 0.55);
+      background: #ef4444;
+      color: #ffffff;
+      font-size: 13px;
+      font-weight: 700;
+      line-height: 1.25;
+      box-shadow: 0 14px 34px rgba(127, 29, 29, 0.28);
+      cursor: pointer;
+      white-space: normal;
+      pointer-events: auto;
+    }
+
+    #__talizen_widget[data-has-errors="true"] #__talizen_render_error_bubble {
+      display: inline-flex;
+    }
+
+    #__talizen_render_error_bubble_count {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      min-width: 20px;
+      height: 20px;
+      padding: 0 6px;
+      border-radius: 999px;
+      background: rgba(255, 255, 255, 0.22);
+      font-size: 12px;
+      box-sizing: border-box;
+    }
+
+    #__talizen_render_error_panel {
+      position: absolute;
+      right: 0;
+      bottom: 56px;
+      display: none;
+      width: min(560px, calc(100vw - 24px));
+      max-height: min(520px, calc(100vh - 96px));
+      overflow: hidden;
+      border-radius: 12px;
+      border: 1px solid rgba(185, 28, 28, 0.24);
+      background: #fff7f7;
+      color: #111827;
+      box-shadow: 0 24px 60px rgba(15, 23, 42, 0.24);
+      pointer-events: auto;
+    }
+
+    #__talizen_widget[data-panel-open="true"] #__talizen_render_error_panel {
+      display: block;
+    }
+
+    #__talizen_render_error_panel_header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      padding: 12px 12px 10px;
+      border-bottom: 1px solid rgba(185, 28, 28, 0.16);
+    }
+
+    #__talizen_render_error_panel_title {
+      margin: 0;
+      color: #991b1b;
+      font-size: 14px;
+      line-height: 1.3;
+      font-weight: 800;
+    }
+
+    #__talizen_render_error_panel_actions {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      flex: none;
+    }
+
+    #__talizen_render_error_copy,
+    #__talizen_render_error_close {
+      height: 32px;
+      border-radius: 8px;
+      border: 1px solid rgba(185, 28, 28, 0.22);
+      background: #ffffff;
+      color: #991b1b;
+      font-size: 12px;
+      font-weight: 700;
+      cursor: pointer;
+    }
+
+    #__talizen_render_error_copy {
+      padding: 0 10px;
+    }
+
+    #__talizen_render_error_close {
+      width: 32px;
+      padding: 0;
+      font-size: 18px;
+      line-height: 1;
+    }
+
+    #__talizen_render_error_list {
+      margin: 0;
+      padding: 12px;
+      max-height: min(440px, calc(100vh - 164px));
+      overflow: auto;
+      color: #3f1d1d;
+      white-space: pre-wrap;
+      overflow-wrap: anywhere;
+      font: 12px/1.55 ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
+    }
+
+    @media (min-width: 768px) {
+      #__talizen_widget {
+        right: 16px;
+        bottom: 16px;
+      }
+    }
+
+    @media (max-width: 520px) {
+      #__talizen_widget {
+        left: 12px;
+        right: 12px;
+      }
+
+      #__talizen_widget_row {
+        width: 100%;
+        justify-content: flex-end;
+      }
+
+      #__talizen_render_error_bubble {
+        max-width: calc(100vw - 128px);
+      }
+    }
+
+    @media (prefers-color-scheme: dark) {
+      #__talizen_made_in_wrap {
+        border-color: rgba(38, 38, 38, 0.5);
+        background: rgba(23, 23, 23, 0.8);
+        color: #f5f5f5;
+      }
+
+      #__talizen_made_in_close {
+        background: transparent;
+        color: #d4d4d4;
+      }
+
+      #__talizen_made_in_close:hover {
+        background: #f5f5f5;
+        color: #171717;
+      }
+
+      #__talizen_made_in_label {
+        color: #a3a3a3;
+      }
+      #__talizen_made_in_wordmark {
+        color: #f5f5f5;
+      }
+
+      #__talizen_made_in:hover #__talizen_made_in_label {
+        color: #f5f5f5;
+      }
+
+      #__talizen_made_in_logo .talizen-shape-main {
+        fill: #f5f5f5;
+      }
+
+      #__talizen_made_in_logo .talizen-shape-left {
+        fill: #a3a3a3;
+      }
+
+      #__talizen_made_in_logo .talizen-shape-top {
+        fill: #737373;
+      }
+
+      #__talizen_made_in_logo .talizen-shape-dot {
+        fill: #171717;
+      }
+
+      #__talizen_render_error_panel {
+        background: #1f1111;
+        color: #fee2e2;
+      }
+
+      #__talizen_render_error_list {
+        color: #fee2e2;
+      }
+    }
+  </style>
+  <div id="__talizen_widget" data-visible="false" data-has-errors="false" data-panel-open="false">
+    <section id="__talizen_render_error_panel" aria-label="Talizen render errors">
+      <div id="__talizen_render_error_panel_header">
+        <p id="__talizen_render_error_panel_title">Render diagnostics</p>
+        <div id="__talizen_render_error_panel_actions">
+          <button id="__talizen_render_error_copy" type="button">Copy</button>
+          <button id="__talizen_render_error_close" type="button" aria-label="Close">x</button>
+        </div>
+      </div>
+      <pre id="__talizen_render_error_list"></pre>
+    </section>
+    <div id="__talizen_widget_row">
+      <button id="__talizen_render_error_bubble" type="button">
+        <span>Render error</span>
+        <span id="__talizen_render_error_bubble_count">0</span>
+      </button>
+      
+    </div>
+  </div>
+  <script>
+  (function(){
+    var initial = null;
+    var showWarn = false;
+    var errors = Array.isArray(initial) ? initial.slice() : [];
+    var widget = document.getElementById("__talizen_widget");
+    var bubble = document.getElementById("__talizen_render_error_bubble");
+    var count = document.getElementById("__talizen_render_error_bubble_count");
+    var panel = document.getElementById("__talizen_render_error_panel");
+    var list = document.getElementById("__talizen_render_error_list");
+    var copy = document.getElementById("__talizen_render_error_copy");
+    var close = document.getElementById("__talizen_render_error_close");
+    var madeInWrap = document.getElementById("__talizen_made_in_wrap");
+    var madeInClose = document.getElementById("__talizen_made_in_close");
+    var madeInHidden = false;
+    var original = {
+      error: console.error && console.error.bind(console),
+      warn: console.warn && console.warn.bind(console)
+    };
+
+    function stringify(value) {
+      if (value instanceof Error) return value.stack || value.message || String(value);
+      if (typeof value === "string") return value;
+      try {
+        return JSON.stringify(value, null, 2);
+      } catch (err) {
+        return String(value);
+      }
+    }
+
+    function formatArgs(args) {
+      return Array.prototype.map.call(args, stringify).join(" ");
+    }
+
+    function stripUncaught(line) {
+      return String(line || "").replace(/^Uncaught\s+/, "").trim();
+    }
+
+    function isStackFrame(line) {
+      return /^\s*at\s+/.test(String(line || ""));
+    }
+
+    function isVendorStackFrame(line) {
+      line = String(line || "");
+      if (line.indexOf("/_client/") >= 0) return false;
+      return line.indexOf("react-dom") >= 0 ||
+        line.indexOf("react@") >= 0 ||
+        line.indexOf("react/") >= 0 ||
+        line.indexOf("esm.creght.com") >= 0 ||
+        line.indexOf("esm.sh") >= 0 ||
+        line.indexOf("node_modules") >= 0;
+    }
+
+    function compactDiagnostic(message, detail) {
+      var text = [message, detail].filter(Boolean).join("\n");
+      var lines = text.split(/\n+/).map(function(line){ return line.trim(); }).filter(Boolean);
+      var messageLine = "";
+      var frames = [];
+
+      lines.forEach(function(line){
+        if (isStackFrame(line)) {
+          frames.push(line);
+          return;
+        }
+        line = stripUncaught(line);
+        if (!messageLine && /(?:Error|Exception):/.test(line)) {
+          messageLine = line;
+        }
+      });
+
+      if (!messageLine) {
+        messageLine = stripUncaught(message || lines[0] || "");
+      }
+
+      var usefulFrames = frames.filter(function(line){ return !isVendorStackFrame(line); });
+      if (usefulFrames.length === 0 && frames.length > 0) {
+        usefulFrames = frames.slice(0, 1);
+      }
+      return {
+        message: messageLine,
+        detail: usefulFrames.slice(0, 3).join("\n")
+      };
+    }
+
+    function render() {
+      if (!widget) return;
+      var hasErrors = errors.length > 0;
+      var hasBadge = !!(madeInWrap && !madeInHidden);
+      widget.setAttribute("data-has-errors", hasErrors ? "true" : "false");
+      widget.setAttribute("data-visible", (hasErrors || hasBadge) ? "true" : "false");
+      if (count) count.textContent = String(errors.length);
+      if (list) {
+        list.textContent = errors.map(function(item, index){
+          var lines = [
+            "#" + (index + 1) + " [" + (item.level || "error") + "] " + (item.source || "browser"),
+            item.message || ""
+          ];
+          if (item.detail) lines.push(item.detail);
+          if (item.code) lines.push("code: " + item.code);
+          return lines.filter(Boolean).join("\n");
+        }).join("\n\n");
+      }
+    }
+
+    function push(level, source, message, detail, code) {
+      if ((String(message || "").indexOf("Minified React error #418") >= 0) || (String(detail || "").indexOf("Minified React error #418") >= 0)) {
+        level = "warn";
+      }
+      if (level === "warn" && !showWarn) return;
+      var display = showWarn ? { message: message || "", detail: detail || "" } : compactDiagnostic(message, detail);
+      errors.push({
+        level: level || "error",
+        source: source || "browser",
+        message: display.message || "",
+        detail: display.detail || "",
+        code: code || 0
+      });
+      window.__TALIZEN_RENDER_ERRORS__ = errors;
+      render();
+    }
+
+    console.error = function(){
+      var text = formatArgs(arguments);
+      push(text.indexOf("Minified React error #418") >= 0 ? "warn" : "error", "console", text, "");
+      if (original.error) original.error.apply(console, arguments);
+    };
+    console.warn = function(){
+      var text = formatArgs(arguments);
+      if (original.warn) original.warn.apply(console, arguments);
+    };
+    window.addEventListener("error", function(event){
+      var err = event.error;
+      push("error", "window.error", event.message || stringify(err), err && err.stack ? err.stack : "");
+    });
+    window.addEventListener("unhandledrejection", function(event){
+      var reason = event.reason;
+      push("error", "unhandledrejection", stringify(reason), reason && reason.stack ? reason.stack : "");
+    });
+    if (bubble) bubble.addEventListener("click", function(){
+      widget.setAttribute("data-panel-open", widget.getAttribute("data-panel-open") === "true" ? "false" : "true");
+    });
+    if (close) close.addEventListener("click", function(){
+      widget.setAttribute("data-panel-open", "false");
+    });
+    if (madeInClose) madeInClose.addEventListener("click", function(event){
+      event.preventDefault();
+      event.stopPropagation();
+      madeInHidden = true;
+      if (madeInWrap) madeInWrap.style.display = "none";
+      render();
+    });
+    if (panel) panel.addEventListener("click", function(event){
+      event.stopPropagation();
+    });
+    if (copy) copy.addEventListener("click", function(){
+      var text = list ? list.textContent : "";
+      var done = function(){ copy.textContent = "Copied"; setTimeout(function(){ copy.textContent = "Copy"; }, 1200); };
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(text).then(done, done);
+        return;
+      }
+      var textarea = document.createElement("textarea");
+      textarea.value = text;
+      textarea.style.position = "fixed";
+      textarea.style.opacity = "0";
+      document.body.appendChild(textarea);
+      textarea.select();
+      try { document.execCommand("copy"); } catch (err) {}
+      document.body.removeChild(textarea);
+      done();
+    });
+    window.__TALIZEN_RENDER_ERRORS__ = errors;
+    window.__TALIZEN_RENDER_REPORT_ERROR__ = push;
+    render();
+  })();
+  </script>
+  <script>window.__DATA__ = {"mode":"hydrate","projectId":"p2mq2cs9z4gi","props":{"sourceAssets":[{"id":"p3xa6bcyxmy6","title":"Bubble Letter Y","assetType":"image","coverImage":"https://fsu.creght.com/site/2077964050901241856/1785387425140__bubble_letter_y.png","sourceFile":"https://fsu.creght.com/site/2077964050901241856/1785387425140__bubble_letter_y.png","alt":"Glossy pink letter Y with a black outline"},{"id":"p3xa6duz9vn2","title":"Plush Bear","assetType":"image","coverImage":"https://fsu.creght.com/site/2077964050901241856/1785387421588__plush_bear.png","sourceFile":"https://fsu.creght.com/site/2077964050901241856/1785387421588__plush_bear.png","alt":"White and purple plush bear waving"},{"id":"p3xa55ctpxua","title":"Cartoon Boy","assetType":"image","coverImage":"https://fsu.creght.com/site/2077964050901241856/1785387418522__cartoon_boy.png","sourceFile":"https://fsu.creght.com/site/2077964050901241856/1785387418522__cartoon_boy.png","alt":"Smiling red-haired cartoon boy"},{"id":"p3xa593n9w8y","title":"Velvet Roses","assetType":"image","coverImage":"https://fsu.creght.com/site/2077964050901241856/1785387421711__velvet_roses.png","sourceFile":"https://fsu.creght.com/site/2077964050901241856/1785387421711__velvet_roses.png","alt":"Purple and orange velvet roses"},{"id":"p3xa6ajrmdf2","title":"Christmas Tree","assetType":"image","coverImage":"https://fsu.creght.com/site/2077964050901241856/1785387421839__christmas_tree.png","sourceFile":"https://fsu.creght.com/site/2077964050901241856/1785387421839__christmas_tree.png","alt":"Pastel decorated Christmas tree"},{"id":"p3xa6ch09jma","title":"Neon Moon \u0026 Stars","assetType":"image","coverImage":"https://fsu.creght.com/site/2077964050901241856/1785387422816__neon_moon_stars.png","sourceFile":"https://fsu.creght.com/site/2077964050901241856/1785387422816__neon_moon_stars.png","alt":"Glowing cyan and green crescent moon with three stars"},{"id":"p3xeai1ybxjm","title":"Rose Cats","assetType":"image","coverImage":"https://fsu.creght.com/site/2077964050901241856/1785389640507__rose_cats.png","sourceFile":"https://fsu.creght.com/site/2077964050901241856/1785389640507__rose_cats.png","alt":"Red and dark green cartoon cats holding a red rose"}]},"provider":{"name":"creght","url":"https://www.creght.cn"},"siteId":"p2mq2ctezw5e"};</script>
+  <script>window.TalizenConfig = { baseUrl: window.location.origin + '/api/', i18n: {"locale":"en","locales":["en","zh-CN"],"defaultLocale":"en","routingDefaultLocale":"en"}, pathname: "/generator" };</script>
+<script type="importmap">{"imports":{"@floating-ui/react":"https://esm.sh/@floating-ui/react@0.27.20?external=react,react-dom","@floating-ui/react/":"https://esm.sh/@floating-ui/react@0.27.20\u0026external=react,react-dom/","@gsap/react":"https://esm.talizen.com/@gsap/react@2.1.2?external=react,react-dom","@radix-ui/react-slot":"https://esm.talizen.com/@radix-ui/react-slot@1.2.4","@react-three/drei":"https://esm.talizen.com/@react-three/drei@10.7.4?external=react,react-dom,three,@react-three","@react-three/fiber":"https://esm.talizen.com/@react-three/fiber@9.3.0?external=react,react-dom,three","class-variance-authority":"https://esm.talizen.com/class-variance-authority@0.7.1","clsx":"https://esm.talizen.com/clsx@2.1.1","framer-motion":"https://esm.talizen.com/framer-motion@12.38.0?external=react,react-dom","gsap":"https://esm.talizen.com/gsap@3.13.0","gsap/":"https://esm.talizen.com/gsap@3.13.0/","lenis":"https://esm.talizen.com/lenis@1.3.13","lucide-react":"https://esm.talizen.com/lucide-react@0.577.0?external=react,react-dom","matter-js":"https://esm.talizen.com/matter-js@0.20.0","motion":"https://esm.talizen.com/motion@12.38.0","motion/react":"https://esm.talizen.com/motion@12.38.0/react?external=react,react-dom","ogl":"https://esm.talizen.com/ogl@1.0.11","radix-ui":"https://esm.sh/radix-ui@1.4.3?external=react,react-dom","radix-ui/":"https://esm.sh/radix-ui@1.4.3\u0026external=react,react-dom/","react":"https://esm.talizen.com/react@19.2.4","react-dom":"https://esm.talizen.com/react-dom@19.2.4","react-dom/":"https://esm.talizen.com/react-dom@19.2.4/","react-icons":"https://esm.talizen.com/react-icons@5.5.0?external=react,react-dom","react-icons/":"https://esm.talizen.com/react-icons@5.5.0\u0026external=react,react-dom/","react-markdown":"https://esm.talizen.com/react-markdown@10.1.0?external=react,react-dom","react/":"https://esm.talizen.com/react@19.2.4/","remark-gfm":"https://esm.talizen.com/remark-gfm@4.0.1?bundle","tailwind-merge":"https://esm.talizen.com/tailwind-merge@3.5.0","talizen":"https://esm.talizen.com/talizen@0.2.40?external=react,react-dom","talizen/":"https://esm.talizen.com/talizen@0.2.40\u0026external=react,react-dom/","three":"https://esm.talizen.com/three@0.167.1","three/":"https://esm.talizen.com/three@0.167.1/"}}</script>
+<script type="module" src="/_client/index_73a60ac2796c.js"></script>
+</body>
+</html>
